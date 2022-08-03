@@ -1,25 +1,32 @@
 import os,json,time,requests
+from xmlrpc.client import FastMarshaller
+import random
 from web3 import Web3
 from app_modules.taskLogger import taskLogger
 from app_modules.discordLog import webhookLog
 from app_modules.apiModules import nodeProvider,etherScanApi,alternative,checkNode,capKey,cfNode,checkCapMonster
 from app_modules.titleLog import classUpdateTitle
 from app_modules.proxy import proxy_choice
-from modules.twitter import manualFollow
+from modules.twitter import browserTask,fileBrowser,followTwitter,connectTwitter,connectDiscordRequest,disconnectSocial,likeTweet
+from modules.discordModule import inviteTask
 import time,re
 from eth_account.messages import encode_defunct
 from bs4 import BeautifulSoup
 import tweepy
 import re
 import cloudscraper
+from fake_useragent import UserAgent
+ua = UserAgent()
 
 
 global web3Connection
+stagger = 0
 updateTitleCall=classUpdateTitle("Premint")
 siteKey = "6Lf9yOodAAAAADyXy9cQncsLqD9Gl4NCBx3JCR_x"
+workingProxy = []
 
 class premint():
-    def __init__(self,targetUrl,wallet,walletKey,twitterToken,twitterPassword,discordToken,accessToken,accessTokenSecret,consumerKey,consumerSecret,mode,taskId):
+    def __init__(self,targetUrl,wallet,walletKey,twitterToken,twitterPassword,discordToken,accessToken,accessTokenSecret,consumerKey,consumerSecret,mode,taskId,discordMode="default",reactParam =None):
        self.targetUrl = targetUrl
        self.wallet = wallet.lower()
        self.walletKey = walletKey
@@ -48,8 +55,12 @@ class premint():
        self.accessTokenSecret = accessTokenSecret
        self.consumerKey = consumerKey
        self.consumerSecret = consumerSecret
-       self.prefix = "@"+twitterToken+","+discordToken
+       self.prefix = "@"+twitterToken
        self.nonce = 0
+       self.proxObj = None
+       self.discordMode = discordMode
+       self.reactParam = reactParam
+       self.likeReq = "unspecified"
 
 
 
@@ -61,7 +72,7 @@ class premint():
         updateTitleCall.addRun()
         self.initialize()
 
-    def rotateProxy(self):
+    def rotateProxy(self,retry=False):
         taskLogger({"status":"process", "message": "Rotating proxy","prefix":self.prefix},self.taskId)
         self.session = cloudscraper.create_scraper(
                browser={
@@ -70,18 +81,18 @@ class premint():
                         'mobile': False
             }
         )
+        self.session.headers['User-Agent'] = ua['firefox']
         chosenProxy=proxy_choice()
+        self.proxObj = chosenProxy
         self.session.proxies.update(chosenProxy)
         self.proxy = str(self.session.proxies['http'])
-
-    def initialize(self):
-        taskLogger({"status" : "process","message":"Initializing session","prefix":self.prefix},self.taskId)
-        self.session = cloudscraper.create_scraper()
-        
-        if (self.mode != "check"):
-            self.rotateProxy()
-            
+    
+    def refreshSession(self,retry=False):        
+        self.rotateProxy(retry)    
+        self.session.cookies.clear()
         while True:
+            taskLogger({"status" : "process","message":"Initializing session","prefix":self.prefix},self.taskId)
+
             try:
                 response = self.session.get("http://www.premint.xyz/")
                 if (response.status_code == 200):
@@ -106,20 +117,132 @@ class premint():
                 time.sleep(5)
 
 
-        if (self.mode != "check"):
+    def initialize(self):   
+        global stagger 
+        '''while True:
+            if (stagger <= 5):
+                break
+            else:
+                #taskLogger({"status" : "process","message":"Waiting for stagger start","prefix":self.prefix},self.taskId)
+                time.sleep(3)'''
+
+        stagger += 1
+        self.refreshSession()
+        if (self.mode == "check"):
             self.verify()
-            if (self.proceed):
-                self.login()
-                self.scrape()
+        elif (self.mode == "connect" or self.mode == "connect-local"):
+            self.register()
+            self.login()
+            res,message = self.checkConnected()
+            if (message != "connected-before"):
+                #res,message = browserTask(self.twitterToken,self.password,self.discordToken,"twitterAcc",self.prefix,self.taskId,self.session,self.mode)
+                if (res == True):
+                    taskObject = {'url':self.targetUrl,'name':"@{}".format(self.twitterToken),'status': "success",'taskType':"Premint Connect",'statusMessage':'Successfully connected socials','wallet':self.wallet,'discord':self.discordToken,'twitter':self.twitterToken,'proxy':self.proxy,'errorMessage':"None",'twitterProj':"none",'discordProj':"none",'image':"https://cdn.discordapp.com/attachments/837783679810928671/999220088903319612/AXZE_PFP_FIX.jpg"}
+                    updateTitleCall.addSuccess()
+                else:
+                    taskObject = {'url':self.targetUrl,'name':"@{}".format(self.twitterToken),'status': "error",'taskType':"Premint Connect",'statusMessage':'Failed connecting socials','wallet':self.wallet,'discord':self.discordToken,'twitter':self.twitterToken,'proxy':self.proxy,'errorMessage':message,'twitterProj':"none",'discordProj':"none",'image':"https://cdn.discordapp.com/attachments/837783679810928671/999220088903319612/AXZE_PFP_FIX.jpg"}
+                    updateTitleCall.addFail()
+                webhookLog(taskObject)  
+            else:
+                updateTitleCall.addSuccess()
+
+        elif("disconnect" in self.mode):
+            self.prefix = '@-'
+            self.register()
+            self.login()
+            res,message = disconnectSocial(self.session,self.prefix,self.taskId)
+            if (res == True):
+                updateTitleCall.addSuccess()
+            else:
+                taskObject = {'url':self.targetUrl,'name':"@{}".format(self.twitterToken),'status': "error",'taskType':"Premint Disconnect",'statusMessage':'Failed disconnecting socials','wallet':self.wallet,'discord':self.discordToken,'twitter':self.twitterToken,'proxy':self.proxy,'errorMessage':message,'twitterProj':"none",'discordProj':"none",'image':"https://cdn.discordapp.com/attachments/837783679810928671/999220088903319612/AXZE_PFP_FIX.jpg"}
+                updateTitleCall.addFail()
         else:
             self.verify()
+            self.register() #Account check
+            if (self.proceed):
+                time.sleep(2)
+                self.login()
+                self.scrape()
+        
 
+    def register(self): #check if wallet already exist , if not -> register
+        payload = {"username":str(self.wallet).lower()}
+        header = {"referer": "https://www.premint.xyz/v1/login_api/"}
+        while (True):
+            try:
+                taskLogger({"status" : "process","message":"Checking Premint account","prefix":self.prefix},self.taskId)
+                response = self.session.post("https://www.premint.xyz/v1/signup_api/",data = payload , headers = header)
+                if (response.status_code == 200):
+                    responseJson = json.loads(response.text)
+                    proceed = responseJson['success']
+                    if (proceed):
+                        taskLogger({"status" : "success","message":"Succesfully registered Premint account!","prefix":self.prefix},self.taskId)
+                        break
+                    else: #fail
+                        responseJsonStr = str(responseJson)
+                        if ("A user with that username already exists." in responseJsonStr):
+                            taskLogger({"status" : "success","message":"Account already exist for wallet","prefix":self.prefix},self.taskId)
+                            break
+                        else:
+                            taskLogger({"status" : "success","message":"Checking Premint account failure - {}".format(responseJsonStr),"prefix":self.prefix},self.taskId)
+                            time.sleep(3)
+                else:
+                    taskLogger({"status" : "error","message":"Failed Premint account check - {}".format(response.status_code),"prefix":self.prefix},self.taskId)
+                    time.sleep(2)
+                    break
+            except Exception as e:
+                taskLogger({"status" : "error","message":"Failed Premint account check  - {}".format(e),"prefix":self.prefix},self.taskId)
+                time.sleep(3)
+                break
+            
+    def checkConnected(self):
+        twitterString = "Connect Twitter"
+        discordString = "Connect Discord"
+        while (True):
+            try:
+                header = {"referer": "https://www.premint.xyz/v1/login_api/"}
+                taskLogger({"status" : "process","message":"Checking if socials are connected","prefix":self.prefix},self.taskId)
+                response = self.session.get("https://www.premint.xyz/profile/",headers = header)
+                if (response.status_code == 200):
+                    break
+                else:
+                    taskLogger({"status" : "error","message":"Failed socials account check - {}".format(response.status_code),"prefix":self.prefix},self.taskId)
+                    time.sleep(2)
+            except Exception as e:
+                taskLogger({"status" : "error","message":"Failed socials account check  - {}".format(e),"prefix":self.prefix},self.taskId)
+                time.sleep(3)
+            
+        if (twitterString not in response.text):
+            if (discordString in response.text):
+                if (self.discordToken == "Unspecified"):
+                    taskLogger({"status" : "success","message":"Twitter connected and discord token is not supplied, skipping account!","prefix":self.prefix},self.taskId)
+                    return True,"connected-before"
+            else:
+                taskLogger({"status" : "success","message":"All socials connected, skipping account!","prefix":self.prefix},self.taskId)
+                return True,"connected-before"
 
+        if (twitterString in response.text):
+            if (fileBrowser(self.twitterToken) == False): #profile not found ,save cookie here
+                res,message = browserTask(self.twitterToken,self.password,self.discordToken,"axzeio",self.prefix,self.taskId,self.session,self.mode)
+                if (res!= True):
+                    taskLogger({"status" : "error","message":"Failed Twitter setup - {}".format(message),"prefix":self.prefix},self.taskId)
+                    return False,"Failed Twitter setup - {}".format(message)
+            taskLogger({"status" : "warn","message":"Twitter is not connected!","prefix":self.prefix},self.taskId)
+            res,message = connectTwitter(self.twitterToken,self.session,self.prefix,self.taskId)
+
+        if (discordString in response.text and self.discordToken!="Unspecified"):
+            taskLogger({"status" : "warn","message":"Discord is not connected and token is supplied in excel file!","prefix":self.prefix},self.taskId)
+            res,message = connectDiscordRequest(self.discordToken,self.prefix,self.session,self.taskId)
+
+        return res,message
+
+                    
     def login(self):
+        global workingProxy
         while (True):
             try:
                 taskLogger({"status" : "process","message":"Fetching session","prefix":self.prefix},self.taskId)
-                response = self.session.get("https://www.premint.xyz/v1/login_api/")
+                response = self.session.get("http://www.premint.xyz/v1/login_api/")
                 if (response.status_code == 200):
                     responseJson = json.loads(response.text)
                     proceed = responseJson['success']
@@ -128,12 +251,14 @@ class premint():
                         break
                 else:
                     taskLogger({"status" : "error","message":"Failed fetching session - {}".format(response.status_code),"prefix":self.prefix},self.taskId)
-                    time.sleep(3)
+                    time.sleep(2)
+                    self.refreshSession(True)
             except Exception as e:
                 taskLogger({"status" : "error","message":"Failed fetching session - {}".format(e),"prefix":self.prefix},self.taskId)
                 time.sleep(3)
 
         taskLogger({"status" : "success","message":"Fetched session","prefix":self.prefix},self.taskId)
+        workingProxy.append(self.proxObj)
         msg = "Welcome to PREMINT!" + "\n\n" + "Signing is the only way we can truly know \nthat you are the owner of the wallet you \nare connecting. Signing is a safe, gas-less \ntransaction that does not in any way give \nPREMINT permission to perform any \ntransactions with your wallet." + "\n\n"
         msg = msg+"Wallet address:" + "\n" + self.wallet + "\n\n" +"Nonce: " + self.nonce
         message = encode_defunct(text=msg)
@@ -144,15 +269,15 @@ class premint():
         self.authenticate()
 
     def authenticate(self):
-        payload = {
-            "web3provider":"metamask",
-            "address":self.wallet,
-            "signature":self.signature
-        }
-        self.session.headers['X-CSRFToken'] = self.csrfToken
-        self.session.headers['referer'] = self.targetUrl
-
         while (True):
+            payload = {
+                    "web3provider":"metamask",
+                    "address":self.wallet,
+                    "signature":self.signature
+            }
+            self.session.headers['X-CSRFToken'] = self.csrfToken
+            self.session.headers['referer'] = self.targetUrl
+
             try:
                 taskLogger({"status" : "process","message":"Logging in","prefix":self.prefix},self.taskId)
                 response = self.session.post("https://www.premint.xyz/v1/login_api/",data = payload)
@@ -164,7 +289,8 @@ class premint():
                         break
                     else:
                         taskLogger({"status" : "error","message":"Failed login - {}".format(responseJson['error']),"prefix":self.prefix},self.taskId)
-                        time.sleep(3)
+                        time.sleep(2)
+                        self.refreshSession()
                 else:
                     taskLogger({"status" : "error","message":"Failed login - {}".format(response.status_code),"prefix":self.prefix},self.taskId)
                     time.sleep(3)
@@ -173,6 +299,7 @@ class premint():
                 time.sleep(3)
 
     def scrape(self): #scrape premint info 
+        global stagger
         responseData = None
         while True:
             try:
@@ -198,31 +325,59 @@ class premint():
             soup = BeautifulSoup(responseData, "html.parser")
             tokRes = soup.find("input",{"name":"csrfmiddlewaretoken"})
             self.csrfToken = tokRes['value']
-        except:
-            taskLogger({"status" : "error","message":"Failed fetching token - Disconnected socials","prefix":self.prefix},self.taskId)
-            taskObject = {'url':self.targetUrl,'name':self.name,'status': "error",'taskType':"Premint",'statusMessage':'Failed fetching token','wallet':self.wallet,'discord':self.discordToken,'twitter':self.twitterToken,'proxy':self.proxy,'errorMessage':"Disconnected socials",'twitterProj':self.twitterReq,'discordProj':self.discordReq,'image':self.image}
+        except Exception as e:
+            errMsg = str(e)
+            if ("Cannot register until you connect accounts above" in responseData):
+                errMsg = "Disconnected Socials"
+
+            taskLogger({"status" : "error","message":"Failed fetching token - {}".format(errMsg),"prefix":self.prefix},self.taskId)
+            taskObject = {'url':self.targetUrl,'name':self.name,'status': "error",'taskType':"Premint",'statusMessage':'Failed fetching token','wallet':self.wallet,'discord':self.discordToken,'twitter':self.twitterToken,'proxy':self.proxy,'errorMessage':"Failed fetching Token - {}".format(errMsg),'twitterProj':self.twitterReq,'discordProj':self.discordReq,'image':self.image}
             webhookLog(taskObject)  
+            stagger -=1 
             return
         
         #find params here 
         paramRes = soup.find("input",{"name":"params_field"})
         self.params = paramRes['value']
 
-        res = soup.find_all("li",{"class": "mt-1"}) #res = soup.find_all("a",{"class": "c-base-1 strong-700 text-underline"}) #returns links and roles
+        #res = soup.find_all("li",{"class": "mt-1"}) #res = soup.find_all("a",{"class": "c-base-1 strong-700 text-underline"}) #returns links and roles
+        res = soup.find_all("a",{'class':'c-base-1 strong-700 text-underline'})
+        twitterUserArr = []
         for r in res:
             try:
-                if ("twitter" in r.a['href']):
-                    self.twitterReq = r.a['href']
-                    taskLogger({"status" : "process","message":"Found twitter requirement - {}".format(self.twitterReq),"prefix":self.prefix},self.taskId)
-                    if (not self.twitterMethod()):
-                        return
+                if ("status" in r['href']):
+                    self.likeReq = r['href']
+                    taskLogger({"status" : "process","message":"Found twitter like&RT requirements - {}".format(self.likeReq),"prefix":self.prefix},self.taskId)
 
-                elif ("discord" in r.a['href']):
-                    self.discordReq = r.a['href']
+                elif ("twitter" in r['href']):
+                    taskLogger({"status" : "process","message":"Found twitter requirement - {}".format(r['href']),"prefix":self.prefix},self.taskId)
+                    twitterUserArr.append(r['href'])
+                    
+
+                elif ("discord" in r['href']):
+                    self.discordReq = r['href']
+                    self.discordReq = self.discordReq.replace("https://discord.gg/","")
                     taskLogger({"status" : "process","message":"Found discord requirement - {}".format(self.discordReq),"prefix":self.prefix},self.taskId)
+                    if (self.discordToken == "Unspecified"):
+                        taskLogger({"status" : "error","message":"No discord token supplied for task but joining server is required!","prefix":self.prefix},self.taskId)
+                        
+                    else:
+                        inviteTaskInstance = inviteTask(self.discordToken,self.discordReq,self.proxy,self.taskId,self.discordMode,self.reactParam)
+                        inviteTaskInstance.main()
             except:
                 pass
         
+        self.twitterReq = twitterUserArr
+        if (not self.twitterMethod()):
+            return
+        
+        if (self.likeReq != "unspecified"):
+            _,_,_,_,_,reqTweet = self.likeReq.split("/")
+            res,message = likeTweet(self.twitterToken,reqTweet,self.session,self.prefix,self.taskId)
+            if (res == False):
+                taskObject = {'url':self.targetUrl,'name':self.name,'status': "error",'taskType':"Premint - Twitter Like/RT",'statusMessage':'Failed liking/Rting Tweet','wallet':self.wallet,'discord':self.discordToken,'twitter':self.twitterToken,'proxy':self.proxy,'errorMessage':"Failed liking/Rting tweet - {}".format(message),'twitterProj':self.twitterReq,'discordProj':self.discordReq,'image':self.image}
+                webhookLog(taskObject)  
+                return
 
         res = soup.find("span",{"class":"strong c-black"})
         if (res!= None):
@@ -291,6 +446,8 @@ class premint():
         return solvedPayload['solution']['gRecaptchaResponse']
 
     def submit(self):
+        global stagger 
+        stagger-=1
         self.submitLoad = {
             "csrfmiddlewaretoken":self.csrfToken,
             "holdings_wallet" : self.wallet,
@@ -321,8 +478,12 @@ class premint():
                         updateTitleCall.addFail()
                         soup = BeautifulSoup(response.text, "html.parser")
                         res = soup.find("div",{"class":"alert alert-danger alert-dismissible fade show"})
-                        taskLogger({"status" : "error","message":"Failed submitting entry - {}".format(res.text),"prefix":self.prefix},self.taskId)
-                        taskObject = {'url':self.targetUrl,'name':self.name,'status': "error",'taskType':"Premint",'statusMessage':'Failed submitting entry','wallet':self.wallet,'discord':self.discordToken,'twitter':self.twitterToken,'proxy':self.proxy,'errorMessage':res.text,'twitterProj':self.twitterReq,'discordProj':self.discordReq,'image':self.image}
+                        if (res == None):
+                            resMsg = "Undefined Error"
+                        else:
+                            resMsg = res.text
+                        taskLogger({"status" : "error","message":"Failed submitting entry - {}".format(resMsg),"prefix":self.prefix},self.taskId)
+                        taskObject = {'url':self.targetUrl,'name':self.name,'status': "error",'taskType':"Premint",'statusMessage':'Failed submitting entry','wallet':self.wallet,'discord':self.discordToken,'twitter':self.twitterToken,'proxy':self.proxy,'errorMessage':resMsg,'twitterProj':self.twitterReq,'discordProj':self.discordReq,'image':self.image}
                         webhookLog(taskObject)  
                         break
                     '''else:
@@ -340,6 +501,7 @@ class premint():
 
     
     def verify(self):
+        global stagger
         targetUrl = self.targetUrl
 
         if (self.targetUrl[-1] != "/"):
@@ -388,38 +550,50 @@ class premint():
             return False
         elif ("You are registered." in respMessage or respSymbol == "👍"):
             taskLogger({"status" : "success","message":"Verified entry","prefix":self.prefix},self.taskId)
+            stagger -= 1
             return True
         elif ("You were not selected!" in respMessage or respSymbol == "😢"): 
             updateTitleCall.addFail()
             taskLogger({"status" : "error","message":"Lost raffle","prefix":self.prefix},self.taskId)
             taskObject = {'url':self.targetUrl,'name':self.name,'status': "error",'taskType':"Premint",'statusMessage':'😢 Lost Raffle 😢','wallet':self.wallet,'discord':self.discordToken,'twitter':self.twitterToken,'proxy':self.proxy,'errorMessage':"You were not selected!",'twitterProj':self.twitterReq,'discordProj':self.discordReq,'image':self.image}
             webhookLog(taskObject)
+            stagger -= 1
             return True #we don't want to loop retry for a lost raffle
         elif ("You were selected!" in respMessage or respSymbol =="🏆"):
             updateTitleCall.addSuccess()
             taskLogger({"status" : "success","message":"Won raffle","prefix":self.prefix},self.taskId)
-            taskObject = {'url':self.targetUrl,'name':self.name,'status': "success",'taskType':"Premint",'statusMessage':'🏆 Won Raffle 🏆','wallet':self.wallet,'discord':self.discordToken,'twitter':self.twitterToken,'proxy':self.proxy,'errorMessage':"You were selected!",'twitterProj':self.twitterReq,'discordProj':self.discordReq,'image':self.image}
+            taskObject = {'url':self.targetUrl,'name':self.name,'status': "success",'taskType':"PremintWin",'statusMessage':'🏆 Won Raffle 🏆','wallet':self.wallet,'discord':self.discordToken,'twitter':self.twitterToken,'proxy':self.proxy,'errorMessage':"You were selected!",'twitterProj':self.twitterReq,'discordProj':self.discordReq,'image':self.image}
             webhookLog(taskObject)
+            stagger -=1 
             return True 
         else:
             taskLogger({"status" : "warn","message":"Unknown response - {}".format(respMessage),"prefix":self.prefix},self.taskId)
             taskObject = {'url':self.targetUrl,'name':self.name,'status': "error",'taskType':"Premint",'statusMessage':'Unknown response','wallet':self.wallet,'discord':self.discordToken,'twitter':self.twitterToken,'proxy':self.proxy,'errorMessage':respMessage,'twitterProj':self.twitterReq,'discordProj':self.discordReq,'image':self.image}
             webhookLog(taskObject)
             self.proceed = True
+            stagger -= 1
             return True
 
     def twitterMethod(self):
-        twitterAcc = (self.twitterReq).replace("https://twitter.com/","")
+        for i in range (0,len(self.twitterReq)):
+            self.twitterReq[i] = self.twitterReq[i].replace("https://twitter.com/","")
+            #twitterAcc = (self.twitterReq).replace("https://twitter.com/","")
         if (self.password == "api"):
             auth= tweepy.auth.OAuthHandler(self.consumerKey, self.consumerSecret)
             auth.set_access_token(self.accessToken, self.accessTokenSecret)
             api=tweepy.API(auth,retry_count=5,retry_delay=1,retry_errors=set([401, 404, 500, 503]))
-            taskLogger({"status" : "process","message":"Following account - @{}".format(self.twitterReq),"prefix":self.prefix},self.taskId)
-            api.create_friendship(screen_name=twitterAcc)
-            taskLogger({"status" : "success","message":"{} followed account - @{}".format(self.twitterToken,twitterAcc),"prefix":self.prefix},self.taskId)
+            taskLogger({"status" : "process","message":"Following account - @{}".format(self.twitterReq[i]),"prefix":self.prefix},self.taskId)
+            api.create_friendship(screen_name=self.twitterReq[i])
+            taskLogger({"status" : "success","message":"{} followed account - @{}".format(self.twitterToken,self.twitterReq[i]),"prefix":self.prefix},self.taskId)
             return True
         else: #manually login 
-            res,message = manualFollow(self.twitterToken,self.password,twitterAcc,self.prefix,self.taskId)
+            if (fileBrowser(self.twitterToken) == False): #profile not found ,save cookie here
+                res,message = browserTask(self.twitterToken,self.password,self.discordToken,self.twitterReq,self.prefix,self.taskId,self.session,self.mode)
+                if (res!= True):
+                    taskObject = {'url':self.targetUrl,'name':self.targetUrl,'status': "error",'taskType':"Premint",'statusMessage':'Failed twitter follow','wallet':str(self.wallet),'discord':self.discordToken,'twitter':self.twitterToken,'proxy':self.proxy,'errorMessage':message,'twitterProj':self.twitterReq,'discordProj':self.discordReq,'image':"https://pbs.twimg.com/profile_images/1505785782002339840/mgeaHOqx_400x400.jpg"}
+                    webhookLog(taskObject)
+                    return False
+            res,message = followTwitter(self.twitterToken,self.twitterReq,self.session,self.prefix,self.taskId)
             if (res!= True):
                 taskObject = {'url':self.targetUrl,'name':self.targetUrl,'status': "error",'taskType':"Premint",'statusMessage':'Failed twitter follow','wallet':str(self.wallet),'discord':self.discordToken,'twitter':self.twitterToken,'proxy':self.proxy,'errorMessage':message,'twitterProj':self.twitterReq,'discordProj':self.discordReq,'image':"https://pbs.twimg.com/profile_images/1505785782002339840/mgeaHOqx_400x400.jpg"}
                 webhookLog(taskObject)
@@ -454,8 +628,3 @@ class premint():
 
     def discordMethod(self):
         pass
-
-
- 
-
-

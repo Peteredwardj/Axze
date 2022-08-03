@@ -370,7 +370,7 @@ class mint():
                     blockNumber = statusTrack['blockNumber']
                     gasUsed = statusTrack['gasUsed']
                     self.contractPropertyScrape()
-                    taskObject = {"status": "success","taskType": "Mint","receiver": self.contractAddress,"value": self.amount,"gas" : gasUsed , "mode": self.mode , "maxFee" : self.maxGasUsed, "wallet" : self.profileName, "transaction" : transactionHash , "osLink":self.osLink, "image":self.imageUrl,"mintName":self.mintName,"quickMintLink":"http://localhost:8080/qm?contractAddress={}&func={}&qty={}&price={}".format(self.contractAddress,self.mintFunctionCall,self.quantity,self.amount)}
+                    taskObject = {"status": "success","taskType": "Mint","receiver": self.contractAddress,"value": self.amount,"gas" : gasUsed , "mode": self.mode , "maxFee" : self.maxGasUsed, "wallet" : self.profileName, "transaction" : transactionHash , "osLink":self.osLink, "image":self.imageUrl,"mintName":self.mintName,"quickMintLink":"https://api.axze.io/share?contractAddress={}&func={}&qty={}&price={}".format(self.contractAddress,self.mintFunctionCall,self.quantity,self.amount)}
                     if (not self.cancel):
                         if (statusTrack['status']==1): #successful mint 
                             taskLogger({"status" : "success","message":"Succesfully Minted, included in block : {}".format(blockNumber),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
@@ -391,7 +391,7 @@ class mint():
 
             except Exception as e:
                 if ('insufficient funds' in str(e)):
-                    taskObject = {"status": "revert","taskType": "Mint - Reverted","receiver": self.contractAddress,"value": self.amount,"gas" : 0 , "mode": self.mode , "wallet" : self.profileName , "reason":str(e) , "maxFee" :self.maxGasUsed,"quickMintLink":"http://localhost:8080/qm?contractAddress={}&func={}&qty={}&price={}".format(self.contractAddress,self.mintFunctionCall,self.quantity,self.amount)}
+                    taskObject = {"status": "revert","taskType": "Mint - Reverted","receiver": self.contractAddress,"value": self.amount,"gas" : 0 , "mode": self.mode , "wallet" : self.profileName , "reason":str(e) , "maxFee" :self.maxGasUsed,"quickMintLink":"https://api.axze.io/share?contractAddress={}&func={}&qty={}&price={}".format(self.contractAddress,self.mintFunctionCall,self.quantity,self.amount)}
                     taskLogger({"status" : "error","message":"Failed Minting - {}".format(e),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
                     updateTitleCall.addFail()
                     webhookLog(taskObject)

@@ -15,6 +15,7 @@ from app_modules.discordLog import testLog
 from app_modules.version import version
 from app_modules.taskLogger import lightblue,green,red,yellow,reset,expColor,yellow2
 from app_modules.apiModules import checkNode,checkCapMonster
+from app_modules.profileUtils  import profileManager
 from pypresence import Presence
 from datetime import date
 from eth_account import Account
@@ -29,6 +30,7 @@ exitVar = False
 premintTask = False
 quickMintTask = False
 serverQuickMint = False
+serverActive = False
 threadsArr=[]
 profileDict = {}
 
@@ -53,7 +55,7 @@ mainMenu = [
             #'Start Smart Quick Mint [ETH]',
             'Start Wallet Generator [ETH]',
             'Start Premint Modules',
-            'Start Discord Modules',
+            'Profile Management',
             'Settings'
         ]
     }
@@ -65,12 +67,19 @@ api =Api(app)
 
 
 def server_start():
-    serve(app, host="0.0.0.0", port=8080)
+    global serverActive
+    try:
+        serverActive = True
+        serve(app, host="0.0.0.0", port=7373)
+
+    except:
+        serverActive = False
+
 
 
 @app.route("/")
 def index():
-    return "<h1>Exath Nexus Quick Mint QT</h1>"
+    return "<h1>Axze Quick Mint QT</h1>"
 
 @app.route("/qm",methods=['GET'])
 def update():
@@ -83,7 +92,7 @@ def update():
         mintFunc = request.args.get('func')
         additionalParam = {'quantity':quantity,'price':price,'func':mintFunc}
         taskHandler('quickMint',contractToRun,additionalParam)
-        return "<h1>Starting Nexus Quick Mint..</h1>"
+        return "<h1>Starting Axze One click mint..</h1>"
 
 def osResize():
     if platform == "darwin":
@@ -151,7 +160,7 @@ def profileHandler():
     PATH = 'files/wallet.xlsx'
     wb = xw.Book(PATH)
     sheet = wb.sheets['Sheet1']
-    df = sheet['A1:C250'].options(pd.DataFrame, index=False, header=True).value
+    df = sheet['A1:C2000'].options(pd.DataFrame, index=False, header=True).value
     df = df.dropna()
     if (len(df) ==0):
         print(red + "No Profiles created yet!" + reset)
@@ -161,153 +170,221 @@ def profileHandler():
             wallet = i._2
             apiKey = i._3
             profileDict[profile] = {'wallet' : wallet,'apiKey' :apiKey}
-        print(green + "Succesfully loaded profiles!"+reset)
+        print(green + "Succesfully loaded profiles. Hit Ctrl+C anytime to go back to the menu!"+reset)
 
 
 def taskHandler(mode,inputUrl,additionalParam = None):
     global threadsArr,exitVar,currentSheet,currentObjectSet,premintTask,quickMintTask,quickMintSheet
-    if (len(profileDict)==0):
-        print(red+ "No profiles created yet, create some to start tasks!"+reset)
-        profileHandler()
-        return
-    profiles = profileDict
-    if (mode=="ethMint"):
-        PATH = 'files/tasks.xlsx'
-        sheetData = pd.read_excel(PATH,engine='openpyxl',header = 0,names=['profile','contractAddress','mintFunc','quantity','amount','maxFeePerGas','maxPriorityFee','absoluteMax','autoAdjust','mode','cancel'],converters={'amount': lambda x: str(x)})
-        sheetData = sheetData.dropna()
-        currentSheet = sheetData
-        for i in sheetData.itertuples():
-            profile = i.profile
-            contractAddress = i.contractAddress
-            mintFunc = i.mintFunc
-            quantity = i.quantity
-            amount = float(i.amount)
-            maxFeePerGas = i.maxFeePerGas
-            maxPriorityFee = i.maxPriorityFee
-            absoluteMax = i.absoluteMax
-            mode = (i.mode).lower()
-            gasConfig = "default"
-            if ((i.cancel).lower()=="n"):
-                cancel = False
-            else:
-                cancel = True
-            if (maxFeePerGas == 0 or maxPriorityFee==0):
-                gasConfig = "auto"
-            if (i.autoAdjust.lower() == "y"):
-                autoAdjust = True
-            else:
-                autoAdjust = False
-            if (profile not in profiles):
-                print(red+"{} not found in wallets.xlsx, skipping!".format(profile)+reset)
-            else:
-                objectDict = {"object":mint(amount,quantity,profiles[profile]['wallet'],profiles[profile]['apiKey'],contractAddress,mintFunc,maxFeePerGas,maxPriorityFee,absoluteMax,autoAdjust,profile,gasConfig,mode),"maxFeePerGas" : maxFeePerGas, "maxPriorityFee": maxPriorityFee , "cancel" : cancel}
-                currentObjectSet.append(objectDict)
-                #t = threading.Thread(target=mint(amount,quantity,profiles[profile]['wallet'],profiles[profile]['apiKey'],contractAddress,mintFunc,maxFeePerGas,maxPriorityFee,absoluteMax,autoAdjust,profile,gasConfig,mode).order)
-                t = threading.Thread(target=objectDict['object'].order)
-                threadsArr.append(t)
-    elif (mode == "quickMint"):
-        quickMintTask = True
-        maxFeePerGas = 0
-        maxPriorityFee = 0
-        absoluteMax = 0
-        autoAdjust = False
-        gasConfig = "auto"
-        PATH = 'files/quickProfiles.xlsx'
-        sheetData = pd.read_excel(PATH,engine='openpyxl',header = 0,names=['profile'])
-        sheetData = sheetData.dropna()
-        
-        #initialize quickmint control sheet here : 
-        PATH = 'files/quickMintControl.xlsx'
-        controlSheet = pd.read_excel(PATH,engine='openpyxl',header = 0,names=['maxFeePerGas','maxPriorityFee','cancel'])
-        controlSheet = controlSheet.dropna()
-        quickMintSheet = controlSheet
-
-        wb = xw.Book(PATH) #forces open quick mint control center if not opened yet
-
-        if (len(sheetData) ==0):
-            print(red+"No Quick Profiles made!"+reset)
+    try:
+        if (len(profileDict)==0):
+            print(red+ "No profiles created yet, create some to start tasks!"+reset)
+            profileHandler()
             return
-        if (inputUrl=="none"):
-            contractAddress = input(lightblue+"Enter contract to run: "+reset)
-        else:
-            contractAddress = inputUrl
-            print(lightblue+"Nexus is minting contract : {}".format(contractAddress)+reset)
-        
-        if (additionalParam == None):
-            skipQuick = False
-            amount = float(input(lightblue+"Enter Amount per task (Ether): "+reset))
-            quantity = int(input(lightblue+"Enter Quantity to run per task: "+reset))
-            mintFunc = input(lightblue+ "Input mint function, hit Enter to skip and do autoscrape: "+reset)
-            if (mintFunc == ""):
-                mintFunc = "default"
-            autoGas = input(lightblue+ "Run custom gas? input y or hit Enter to skip and run auto: "+reset)
-            if (autoGas=="y"):
-                gasConfig = "manual"
-                maxFeePerGas = float(input(lightblue+ "Enter Max Fee per gas in GWEI : "+reset))
-                maxPriorityFee = float(input(lightblue+"Enter Max Priority Fee in GWEI : "+reset))
-        else:
-            amount = additionalParam['price']
-            quantity = additionalParam ['quantity']
-            mintFunc = additionalParam['func']
-            skipQuick = True
-        for i in sheetData.itertuples():
-            profile = i.profile
-            if (profile not in profiles):
-                print(red+"{} not found in wallets.xlsx, skipping!".format(profile)+reset)
-            else:
-                objectDict = {"object":mint(amount,quantity,profiles[profile]['wallet'],profiles[profile]['apiKey'],contractAddress,mintFunc,maxFeePerGas,maxPriorityFee,absoluteMax,autoAdjust,profile,gasConfig,"experimental"),"maxFeePerGas" : maxFeePerGas, "maxPriorityFee": maxPriorityFee , "cancel" : False}
-                currentObjectSet.append(objectDict)
-                t = threading.Thread(target=objectDict['object'].order)
-                threadsArr.append(t)
-
-        if (skipQuick):
-            for t in threadsArr:
-                t.start()
-            exitVar = False
-    else:
-        premintTask = True
-        if (mode == "check"):
-            pass
-        else:
-            mode = "default"
-        
-        PATH = 'files/premintProfiles.xlsx'
-        sheetData = pd.read_excel(PATH,engine='openpyxl',header = 0,names=['profile','discord','twitter','loginMode','password','consumerKey','consumerSecret','accessToken','accessSecret'],na_filter=False)
-        #sheetData = sheetData.dropna()
-
-        currentSheet = sheetData
-        for i in sheetData.itertuples():
-            if (i.profile == ''):
-                continue
-
-            profile = i.profile
-            if (i.discord == ''):
-                discord = "Unspecified"
-            else:
-                discord = i.discord
-            twitter = i.twitter
-            loginMode = i.loginMode
-            loginMode = str((i.loginMode)).lower()
-            if (loginMode.replace(" ","") =="man"):
-                password = i.password
-                consumerKey = ""
-                consumerSecret = ""
-                accessToken = ""
-                accessSecret =""
-            else: #api login
-                password ="api"
-                consumerKey = i.consumerKey
-                consumerSecret = i.consumerSecret
-                accessToken = i.accessToken
-                accessSecret = i.accessSecret
+        profiles = profileDict
+        if (mode=="ethMint"):
+            PATH = 'files/tasks.xlsx'
+            sheetData = pd.read_excel(PATH,engine='openpyxl',header = 0,names=['profile','contractAddress','mintFunc','quantity','amount','maxFeePerGas','maxPriorityFee','absoluteMax','autoAdjust','mode','cancel'],converters={'amount': lambda x: str(x)})
+            sheetData = sheetData.dropna()
+            currentSheet = sheetData
+            for i in sheetData.itertuples():
+                profile = i.profile
+                contractAddress = i.contractAddress
+                mintFunc = i.mintFunc
+                quantity = i.quantity
+                amount = float(i.amount)
+                maxFeePerGas = i.maxFeePerGas
+                maxPriorityFee = i.maxPriorityFee
+                absoluteMax = i.absoluteMax
+                mode = (i.mode).lower()
+                gasConfig = "default"
+                if ((i.cancel).lower()=="n"):
+                    cancel = False
+                else:
+                    cancel = True
+                if (maxFeePerGas == 0 or maxPriorityFee==0):
+                    gasConfig = "auto"
+                if (i.autoAdjust.lower() == "y"):
+                    autoAdjust = True
+                else:
+                    autoAdjust = False
+                if (profile not in profiles):
+                    print(red+"{} not found in wallet.xlsx, skipping!".format(profile)+reset)
+                else:
+                    objectDict = {"object":mint(amount,quantity,profiles[profile]['wallet'],profiles[profile]['apiKey'],contractAddress,mintFunc,maxFeePerGas,maxPriorityFee,absoluteMax,autoAdjust,profile,gasConfig,mode),"maxFeePerGas" : maxFeePerGas, "maxPriorityFee": maxPriorityFee , "cancel" : cancel}
+                    currentObjectSet.append(objectDict)
+                    #t = threading.Thread(target=mint(amount,quantity,profiles[profile]['wallet'],profiles[profile]['apiKey'],contractAddress,mintFunc,maxFeePerGas,maxPriorityFee,absoluteMax,autoAdjust,profile,gasConfig,mode).order)
+                    t = threading.Thread(target=objectDict['object'].order)
+                    threadsArr.append(t)
+        elif (mode == "quickMint"):
+            quickMintTask = True
+            maxFeePerGas = 0
+            maxPriorityFee = 0
+            absoluteMax = 0
+            autoAdjust = False
+            gasConfig = "auto"
+            PATH = 'files/quickProfiles.xlsx'
+            sheetData = pd.read_excel(PATH,engine='openpyxl',header = 0,names=['profile'])
+            sheetData = sheetData.dropna()
             
-            if (profile not in profiles):
-                print(red+"{} not found in wallets.xlsx, skipping!".format(profile)+reset)
-            else:
-                t = threading.Thread(target=premint(inputUrl,profiles[profile]['wallet'],profiles[profile]['apiKey'],twitter,password,discord,accessToken,accessSecret,consumerKey,consumerSecret,mode,profile).connect)
-                threadsArr.append(t)
+            #initialize quickmint control sheet here : 
+            PATH = 'files/quickMintControl.xlsx'
+            controlSheet = pd.read_excel(PATH,engine='openpyxl',header = 0,names=['maxFeePerGas','maxPriorityFee','cancel'])
+            controlSheet = controlSheet.dropna()
+            quickMintSheet = controlSheet
 
-    exitVar=True
+            wb = xw.Book(PATH) #forces open quick mint control center if not opened yet
+
+            if (inputUrl != None):
+                print(lightblue+"Axze is minting contract : {}".format(inputUrl)+reset)
+
+            profileGroupDict = {}
+            profileGroups = profileManager("read",profileDict)     #profile group screen 
+            if (len(profileGroups) == 0):
+                print(lightblue+"Running all Quick Profiles!"+reset)
+                profileGroupArr = profiles
+            else:
+                ctrGroup = 0 
+                for profileGroup in profileGroups:   #read existing profile groups
+                    ctrGroup += 1 
+                    profileGroupDict[str(ctrGroup)] = profileGroup
+                    print("[{}] - {}".format(ctrGroup,profileGroup))
+                profileGroupDict[str(ctrGroup+1)] = "quickProfiles"
+                print("[{}] - {}".format(ctrGroup+1,"Run all quick profiles"))
+
+                runChoice = input(lightblue+"Input profile group to run Quick Mint for: "+reset)
+                if (profileGroupDict[runChoice] == "quickProfiles"):
+                    print("running all quick profiles")
+                    profileGroupArr = profiles
+                else:
+                    profileGroupArr = profileGroups[profileGroupDict[runChoice]]
+
+            if (len(sheetData) ==0):
+                print(red+"No Quick Profiles made!"+reset)
+                return
+            if (inputUrl=="none"):
+                contractAddress = input(lightblue+"Enter contract to run: "+reset)
+            else:
+                contractAddress = inputUrl
+            
+            if (additionalParam == None):
+                skipQuick = False
+                amount = float(input(lightblue+"Enter Amount per task (Ether): "+reset))
+                quantity = int(input(lightblue+"Enter Quantity to run per task: "+reset))
+                mintFunc = input(lightblue+ "Input mint function, hit Enter to skip and do autoscrape: "+reset)
+                if (mintFunc == ""):
+                    mintFunc = "default"
+                autoGas = input(lightblue+ "Run custom gas? input y or hit Enter to skip and run auto: "+reset)
+                if (autoGas=="y"):
+                    gasConfig = "manual"
+                    maxFeePerGas = float(input(lightblue+ "Enter Max Fee per gas in GWEI : "+reset))
+                    maxPriorityFee = float(input(lightblue+"Enter Max Priority Fee in GWEI : "+reset))
+            else:
+                amount = additionalParam['price']
+                quantity = additionalParam ['quantity']
+                mintFunc = additionalParam['func']
+                skipQuick = True
+
+            if (profileGroupArr == profiles):
+                for i in sheetData.itertuples():
+                    profile = i.profile
+                    if (profile not in profiles):
+                        print(red+"{} not found in wallets.xlsx, skipping!".format(profile)+reset)
+                    else:
+                        objectDict = {"object":mint(amount,quantity,profiles[profile]['wallet'],profiles[profile]['apiKey'],contractAddress,mintFunc,maxFeePerGas,maxPriorityFee,absoluteMax,autoAdjust,profile,gasConfig,"experimental"),"maxFeePerGas" : maxFeePerGas, "maxPriorityFee": maxPriorityFee , "cancel" : False}
+                        currentObjectSet.append(objectDict)
+                        t = threading.Thread(target=objectDict['object'].order)
+                        threadsArr.append(t)
+            else:
+                for profile in profileGroupArr:
+                    if (profile not in profiles):
+                        print(red+"{} not found in wallet.xlsx, skipping!".format(profile)+reset)
+                    else:
+                        objectDict = {"object":mint(amount,quantity,profiles[profile]['wallet'],profiles[profile]['apiKey'],contractAddress,mintFunc,maxFeePerGas,maxPriorityFee,absoluteMax,autoAdjust,profile,gasConfig,"experimental"),"maxFeePerGas" : maxFeePerGas, "maxPriorityFee": maxPriorityFee , "cancel" : False}
+                        currentObjectSet.append(objectDict)
+                        t = threading.Thread(target=objectDict['object'].order)
+                        threadsArr.append(t)
+
+            if (skipQuick):
+                clearConsole()
+                for t in threadsArr:
+                    t.start()
+                exitVar = False
+
+        elif (mode == "disconnect"):
+            premintTask = True
+            PATH = 'files/premintDisconnect.xlsx'
+            sheetData = pd.read_excel(PATH,engine='openpyxl',header = 0,names=['profile'])
+            sheetData = sheetData.dropna()
+            for i in sheetData.itertuples():
+                    profile = i.profile
+                    if (profile not in profiles):
+                        print(red+"{} not found in wallet.xlsx, skipping!".format(profile)+reset)
+                    else:
+                        t = threading.Thread(target=premint(inputUrl,profiles[profile]['wallet'],profiles[profile]['apiKey'],'-','password','discord','accessToken','accessSecret','consumerKey','consumerSecret',mode,profile).connect)
+                        threadsArr.append(t)
+        else:
+            premintTask = True
+            if (mode == "check" or mode == "connect" or mode == "connect-local"):
+                pass
+            else:
+                mode = "default"
+            
+
+            PATH = 'files/premintProfiles.xlsx'
+            discordMode = 'default'
+            reactParam = None
+            if (mode=="default"):
+                runDiscord = input(lightblue+"Run Discord Modules for this premint? Input y or hit Enter to skip! : "+reset)
+                if (runDiscord.lower() == "y"):
+                    discordChoiceInput = input(yellow2+"[1] Message React [2] Wick [Coming Soon] [3] Captcha Bot [Coming Soon]\nChoose Discord verification method: "+reset)
+                    if (discordChoiceInput == "1"):
+                        reactParam = {}
+                        messageInputLink = input("Input the message link to react to: ")
+                        emojiId = input(yellow2+"Input the emoji ID for custom emojis (i.e axzelogo:1001971513513214075) OR Copy paste the emoji for standard emojis\n"+reset+"Input here (Ignore the weird characters): ")
+                        reactParam['messageLink'] = messageInputLink
+                        reactParam['emoji'] = emojiId
+                        discordMode = "react"
+        
+
+            sheetData = pd.read_excel(PATH,engine='openpyxl',header = 0,names=['profile','discord','twitter','loginMode','password','consumerKey','consumerSecret','accessToken','accessSecret'],na_filter=False)
+            #sheetData = sheetData.dropna()
+
+            currentSheet = sheetData
+            for i in sheetData.itertuples():
+                if (i.profile == ''):
+                    continue
+
+                profile = i.profile
+                if (i.discord == ''):
+                    discord = "Unspecified"
+                else:
+                    discord = i.discord
+                twitter = i.twitter
+                loginMode = i.loginMode
+                loginMode = str((i.loginMode)).lower()
+                if (loginMode.replace(" ","") =="man"):
+                    password = i.password
+                    consumerKey = ""
+                    consumerSecret = ""
+                    accessToken = ""
+                    accessSecret =""
+                else: #api login
+                    password ="api"
+                    consumerKey = i.consumerKey
+                    consumerSecret = i.consumerSecret
+                    accessToken = i.accessToken
+                    accessSecret = i.accessSecret
+                
+                if (profile not in profiles):
+                    pass
+                    #print(red+"{} not found in wallets.xlsx, skipping!".format(profile)+reset)
+                else:
+                    t = threading.Thread(target=premint(inputUrl,profiles[profile]['wallet'],profiles[profile]['apiKey'],twitter,password,discord,accessToken,accessSecret,consumerKey,consumerSecret,mode,profile,discordMode,reactParam).connect)
+                    threadsArr.append(t)
+
+        exitVar=True
+    except Exception as e:
+        print(red+"Task handler error - {}".format(e)+reset)
 
     
 
@@ -394,11 +471,18 @@ def optionHandler(answer):
                 'message' : 'Choose module to run',
                 'choices' : [
                     'Premint Entry',
-                    'Winner Check'
+                    'Premint Connect',
+                    'Premint Disconnect',
+                    'Winner Check',
             ]
             }]
             questionPrompt(question)
-
+        elif (option == "Profile Management"):
+            profileOption = input(lightblue+"[1] Create/Edit profile groups [2] View profile groups: "+reset)
+            if profileOption == "1":
+                profileManager("write",profileDict)
+            else:
+                profileManager("read",profileDict)
     elif ("settings" in answer):
         option = answer['settings']
         if (option == "Discord Webhook"):
@@ -444,12 +528,28 @@ def optionHandler(answer):
                 mode = "fast"
             discordModules({'invites':discInviteLink,'delay':delay,'mode':mode})
     elif ("Premint Menu" in answer):
-        inputUrl = input(lightblue+ "Input Premint link : "+reset)
-        if (answer["Premint Menu"] == "Premint Entry"):
-            taskHandler("premint",inputUrl)
+        if (answer["Premint Menu"] == "Premint Connect"):
+            modeChoice= input(lightblue+"Run One time Twitter accounts setup with Proxies?\n[1] Yes [2] No  : "+reset)
+            if (modeChoice == "1"):
+                mode = "connect"
+            else:
+                mode = "connect-local"
+
+            taskHandler(mode,"https://www.premint.xyz/home/")
+        elif (answer["Premint Menu"] == "Premint Disconnect"):
+            taskHandler("disconnect","https://www.premint.xyz/home/")
         else:
-            print(lightblue+ "Checking entries result for : {}".format(inputUrl)+reset)
-            taskHandler("check",inputUrl)
+            inputUrl = input(lightblue+ "Input Premint link : "+reset)
+            if (answer["Premint Menu"] == "Premint Entry"):
+                modeChoice= input(lightblue+"Run One time Twitter accounts setup with Proxies?\n[1] Yes [2] No  : "+reset)
+                if (modeChoice == "1"):
+                    mode = "premint"
+                else:
+                    mode = "premint-local"
+                taskHandler(mode,inputUrl)
+            else:
+                print(lightblue+ "Checking entries result for : {}".format(inputUrl)+reset)
+                taskHandler("check",inputUrl)
             
     elif ("Discord Webhook Setting" in answer):
         dataObject = {'type' : "webhook", 'content': answer["Discord Webhook Setting"]}
@@ -463,35 +563,40 @@ def optionHandler(answer):
 
 def discordPresence():
     try:
-        client_id = '923491065116373063' 
+        client_id = '990843620183650304' 
         startTime=time.time()
         RPC = Presence(client_id)  
         RPC.connect() 
-        RPC.update(state="v{}".format(version),large_image="exathnexus",start=startTime)
+        RPC.update(state="v{}".format(version),large_image="axze",start=startTime)
     except Exception as e:
         pass
 
 def authenticate(licenseKey):
     global licenseUser
-    hardware_id = ':'.join(re.findall('..', '%012x' % uuid.getnode()))
-    payload={
-        "key":licenseKey,
-        "hwid":str(hardware_id),
-        "version":str(version)
-    }
-    headers={'Content-Type':'application/json'}
-    authUrl = "https://api.exath.io/api/nexusAuth"
-    response=requests.post(authUrl,data=json.dumps(payload),headers=headers)
-    if (response.status_code == 200):
-        licenseUser=json.loads(response.text)["user"]
-        print(green+"Succesfully Authenticated"+reset)
-        return True
-    elif (response.status_code ==429):
-        print(red + " You are not running the newest version, you are currently running : v{}".format(version))
-        return False
-    elif (response.status_code == 403):
-        print(red + " Key invalid, or key already binded to another machine!"+reset)
-        return False
+    try:
+        hardware_id = ':'.join(re.findall('..', '%012x' % uuid.getnode()))
+        payload={
+            "key":licenseKey,
+            "hwid":str(hardware_id),
+            "version":str(version)
+        }
+        headers={'Content-Type':'application/json'}
+        authUrl = "https://api.exath.io/api/nexusAuth"
+        response=requests.post(authUrl,data=json.dumps(payload),headers=headers)
+        if (response.status_code == 200):
+            licenseUser=json.loads(response.text)["user"]
+            print(green+"Succesfully Authenticated"+reset)
+            return True
+        elif (response.status_code ==429):
+            print(red + " You are not running the newest version, you are currently running : v{}".format(version))
+            return False
+        elif (response.status_code == 403):
+            print(red + " Key invalid, or key already binded to another machine!"+reset)
+            return False
+    except Exception as e:
+        print(red+"An error occured, retrying authentication - {}".format(e)+reset)
+        time.sleep(1)
+        authenticate(licenseKey)
 
 
 def login():
@@ -535,25 +640,20 @@ def walletGenerator(numToGen):
     print(green+"Generated {} wallets, saved in {}".format(numToGen,fileName)+reset)
 
 
-
-def menuInitializer2():
-    osResize()
-    clearConsole()
-    print(expColor+'''
- ____  _      __   _____  _         _      ____  _     _     __  
-| |_  \ \_/  / /\   | |  | |_|     | |\ | | |_  \ \_/ | | | ( (` 
-|_|__ /_/ \ /_/--\  |_|  |_| |     |_| \| |_|__ /_/ \ \_\_/ _)_) '''+yellow2+'v{}\n'.format(version))
-
-    print('Welcome to Exath Nexus {}!'.format(licenseUser)+reset)
-
-
 def menuInitializer():
     osResize()
     clearConsole()
+    if (serverActive == False):
+        serverStr = "OCQM Inactive"
+        colorStr = red
+    else:
+        serverStr = "OCQM Active"
+        colorStr = green
+
     print(expColor+'''
  ___  _ _  ____ _____ 
 ||=|| \\//   //  ||==  
-|| || //\\  //__ ||___ '''+yellow2+'v{}\n'.format(version))
+|| || //\\  //__ ||___ '''+yellow2+'v{}'.format(version)+colorStr+" {}\n".format(serverStr)+reset)
     print('Welcome to AXZE {}!'.format(licenseUser)+reset)
 
 

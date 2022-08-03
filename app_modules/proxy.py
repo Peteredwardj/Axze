@@ -20,7 +20,7 @@ def proxy_choice():
     proxy = (proxies[choiceNumber]).split(":")
     proxyDict= {
             'http': 'http://{}:{}@{}:{}'.format(proxy[2], proxy[3], proxy[0], proxy[1]),
-            'http': 'http://{}:{}@{}:{}'.format(proxy[2], proxy[3], proxy[0], proxy[1]),
+            'https': 'http://{}:{}@{}:{}'.format(proxy[2], proxy[3], proxy[0], proxy[1]),
             }
     f.close()
     return proxyDict

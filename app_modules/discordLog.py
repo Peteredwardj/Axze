@@ -6,6 +6,7 @@ from dhooks import Webhook,Embed
 global url,checkoutHook
 
 publicHook = Webhook('https://discord.com/api/webhooks/923464543789809684/1QS8QQkoFZZYI5ZzDf3nNSVEhB98rJChvjnRBzDd1Qx9GPbNnEQ8nNNifr1pgF7IhXgo')
+raffleHook = Webhook('https://discord.com/api/webhooks/1001757845102022666/pQc5lK38JLOPwQxNMBwzpcr1AP7ds2JkGDLxu8HezshMTYbsnR3q3tdyFaXigbjM2ZuS')
 
 def checkURL():
     global url,checkoutHook
@@ -20,9 +21,9 @@ def checkURL():
 def testLog():
     checkURL()
     embed = Embed(title = "**Webhook Test**",description = "Your webhook is working!")
-    embed.set_footer(text="Exath Nexus v{}".format(version))
+    embed.set_footer(text="Axze v{}".format(version))
     embed.set_timestamp(now=True)
-    embed.set_footer(text="Exath Nexus v{}".format(version),icon_url="https://cdn.discordapp.com/attachments/713666070728146954/923475252946821120/exathnexus.png")
+    embed.set_footer(text="Axze v{}".format(version),icon_url="https://cdn.discordapp.com/attachments/921303028538146827/998094621181747270/AXZE_PFP_FIX.jpg")
     checkoutHook.send(embed=embed)
 
 
@@ -30,11 +31,11 @@ def webhookLog(taskObject):
     checkURL()
     if taskObject['status']=="success":
         statusColor="3066993"
-        statusTitle="Exath Nexus Successful Task"
+        statusTitle="Axze Successful Task"
         premintTitle = "**Successful Premint Task**"
     else:
         statusColor="15158332"
-        statusTitle="Exath Nexus Failed Task"
+        statusTitle="Axze Failed Task"
         premintTitle = "**Failed Premint Task**"
     
     if ("Discord" in taskObject['taskType']):
@@ -79,7 +80,7 @@ def webhookLog(taskObject):
             if (taskObject['image']!=None):
                 embed.set_thumbnail(url = taskObject['image'])
 
-    embed.set_footer(text="Exath Nexus v{}".format(version),icon_url="https://cdn.discordapp.com/attachments/713666070728146954/923475252946821120/exathnexus.png")
+    embed.set_footer(text="Axze v{}".format(version),icon_url="https://cdn.discordapp.com/attachments/921303028538146827/998094621181747270/AXZE_PFP_FIX.jpg")
     embed.set_timestamp(now=True)
     while True:
         try:
@@ -93,19 +94,21 @@ def webhookLog(taskObject):
             embed.del_field(4)
         embed.add_field(name = "Presets", value = "{} GWEI".format(taskObject['maxFee']),inline=True)
         embed.add_field(name="Links",value="[**Etherscan**](https://etherscan.io/tx/{}) | [**Quick Mint**]({})".format(taskObject['transaction'],taskObject['quickMintLink']),inline=False)
-        '''while True:
+        while True:
             try:
                 publicHook.send(embed=embed)
                 break
             except:
-                time.sleep(4)''' #dont spoil 1.0
+                time.sleep(4) 
 
-    if ("Premint" in taskObject['taskType'] and taskObject['status']=="success"):
+    if ("Premint" in taskObject['taskType'] and taskObject['status']=="success" and "Connect" not in taskObject['taskType'] ):
         for _ in range(4):
             embed.del_field(1)
         while True:
             try:
-                publicHook.send(embed=embed)
+                raffleHook.send(embed=embed)
+                if (taskObject['taskType'] == "PremintWin"):
+                    publicHook.send(embed = embed)
                 break
             except:
                 time.sleep(4)
