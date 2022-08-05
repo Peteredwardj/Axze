@@ -1,6 +1,5 @@
 from __future__ import print_function, unicode_literals
 from cmath import nan
-from pprint import pprint
 from PyInquirer import prompt, Separator,Token,style_from_dict
 from colored import fg, attr
 import datetime,os,threading,json,time,re,uuid,requests
