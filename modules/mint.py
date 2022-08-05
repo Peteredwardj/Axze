@@ -5,15 +5,23 @@ from app_modules.discordLog import webhookLog
 from app_modules.apiModules import nodeProvider,etherScanApi,alternative,checkNode,cfNode
 from app_modules.titleLog import classUpdateTitle
 import cloudscraper
+from blocknative.stream import Stream
+from blocknative.stream import Stream
+from bs4 import BeautifulSoup
+
 
 global web3Connection
+etherScanApi = 'RITWHK4P371RN5G4PY1WGMNT3XQ32M9BVU'
+natApi = 'ed896734-eebe-413a-a8b7-62f5f7a699d8'
+stream  = Stream(natApi,network_id=4)
 updateTitleCall=classUpdateTitle("Mint")
 cachedContracts = {}
 cachedContractProperty = {}
+cachedFlip = {}
 submittingArr = []
 
 class mint():
-    def __init__(self,amount,quantity,walletAddress,walletKey,contractAddress,mintFunc,maxGasFee,maxPriorityFee,absoluteMax,autoAdjust,taskId,gasMode,mode):
+    def __init__(self,amount,quantity,walletAddress,walletKey,contractAddress,mintFunc,maxGasFee,maxPriorityFee,absoluteMax,autoAdjust,taskId,gasMode,mode,gasLimit=None,functionToMonitor=None,paramToMonitor = None):
         self.amount = amount
         self.quantity = quantity
         self.contract = None
@@ -44,6 +52,52 @@ class mint():
         self.inputStuct = None
         self.special = False
         self.mintFunction = None
+        self.gasLimit = gasLimit
+        self.functionToMonitor = functionToMonitor
+        if (self.mode == "flipstate"):
+            try:
+                self.paramToMonitor = json.loads(paramToMonitor)
+            except:
+                taskLogger({"status" : "error","message":"Flipstate param is incorrect!","prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
+                time.sleep(1000)
+
+    async def handleTxn(self,transaction,unsubscribe):
+        global cachedFlip
+        inputData = transaction["input"]
+        match = False
+
+        try: #matching logic
+            decodedFunc,decodedParams= self.contract.decode_function_input(inputData)
+            decodedFunc = str(decodedFunc).split()[1].split('(')[0]
+            if(decodedFunc == self.functionToMonitor):
+                for param in self.paramToMonitor:
+                    if (decodedParams[param] == self.paramToMonitor[param] or str(decodedParams[param]).lower() == str(self.paramToMonitor[param]).lower()):
+                        match = True
+    
+        except Exception as e:
+            taskLogger({"status" : "error","message":"Flipstate error - {}".format(e),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
+
+
+        if (match):
+            transactionTo = transaction["to"]
+            maxFeePerGas = transaction["maxFeePerGasGwei"]
+            maxPriorityFeePerGas = transaction["maxPriorityFeePerGasGwei"]
+            cachedFlip[self.contractAddress]['maxFeePerGas'] = float(maxFeePerGas)*0.9
+            cachedFlip[self.contractAddress]['maxPriorityFeePerGas'] = float(maxPriorityFeePerGas)*0.9
+            cachedFlip[self.contractAddress]['proceed'] = True
+            self.maxGasFee = cachedFlip[self.contractAddress]['maxFeePerGas']
+            self.maxPriorityFee = cachedFlip[self.contractAddress]['maxPriorityFeePerGas']
+            taskLogger({"status" : "warn","message":"Picked up matching transaction","prefix":"({},{}) GWEI".format(maxFeePerGas,maxPriorityFeePerGas)},self.taskId)
+            unsubscribe()
+            self.mint()
+        else:
+            taskLogger({"status" : "warn","message":"Pending transaction not matched, ignoring! {} : {}".format(decodedFunc,decodedParams),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
+
+
+
+    def startStream(self,addressToMonitor):
+        stream.subscribe_address(addressToMonitor, self.handleFlip)
+        stream.connect()
 
     def getProof(self): #to be changed according to drop
         session = cloudscraper.create_scraper()
@@ -123,15 +177,67 @@ class mint():
                 taskLogger({"status" : "error","message":"Failed to fetch contract properties - {}".format(e),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
                 time.sleep(2)
     
+    def fetchContractOwner(self):
+        while True:
+            try:
+                ses = cloudscraper.create_scraper(
+                browser={
+                    'browser': 'chrome',
+                    'platform': 'windows',
+                    'desktop': True
+                }
+                )
+                taskLogger({"status" : "process","message":"Fetching contract owner","prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
+                response = ses.get("https://etherscan.io/address/{}".format(self.address))
+                if (response.status_code == 200):
+                    soup = BeautifulSoup(response.text,"html.parser")
+                    creatorAddress = soup.find("a",{"title":"Creator Address"})
+                    creatorAddress = creatorAddress.text
+                    taskLogger({"status" : "success","message":"Fetched contract owner - {}".format(self.addressToMonitor),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
+                    return creatorAddress
+                else:
+                    taskLogger({"status" : "error","message":"Failed to fetch contract owner - {}".format(response.status_code),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
+                    time.sleep(2)
+            except Exception as e:
+                taskLogger({"status" : "error","message":"Failed to fetch contract owner - {}".format(e),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
+                time.sleep(2)
+
+    def Startflipstate(self):
+        global cachedFlip
+        if (self.contractAddress not in cachedFlip):
+            cachedFlip[self.contractAddress] = {}
+            cachedFlip[self.contractAddress]['proceed'] = False
+            addressToMonitor = self.fetchContractOwner()
+            stream.subscribe_address(addressToMonitor, self.handleTxn)
+            taskLogger({"status" : "process","message":"Flipstate active","prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
+            stream.connect()
+
+        else:
+            taskLogger({"status" : "process","message":"Flipstate subtask active","prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
+            while True:
+                if (cachedFlip[self.contractAddress]['proceed'] == True):
+                    self.maxGasFee = cachedFlip[self.contractAddress]['maxFeePerGas']
+                    self.maxPriorityFee = cachedFlip[self.contractAddress]['maxPriorityFeePerGas']
+                    taskLogger({"status" : "warn","message":"Picked up matching transaction","prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
+                    break
+            self.mint()
+
     def order(self):
         global web3Connection
-        if (self.mode=="default"):
-            web3Connection = Web3(Web3.HTTPProvider(nodeProvider))
-        else: #experimental
-            taskLogger({"status" : "process","message":"Experimental mode","prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
+
+        try:
             web3Connection = Web3(Web3.HTTPProvider(checkNode()))
+        except Exception as e:
+            taskLogger({"status" : "error","message":"Check if you have correctly set up your node in settings! - {}".format(e),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
+            time.sleep(10000)
+        
+
+        taskLogger({"status" : "process","message":"Running {} mode".format(self.mode),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
         self.connect()
-        self.mint()
+        if (self.mode == "flipstate"):
+            self.Startflipstate()
+        else:
+            self.mint()
 
     def connect(self):
         global cachedContracts
@@ -259,15 +365,25 @@ class mint():
                 argsOrder.append(int(self.quantity))
             elif (i['type'] == "address"):
                 argsOrder.append(self.walletAddress)
-        if (len(self.inputStuct) == 0): #no arguments
-            mintFunction = self.contract.functions[self.mintFunctionCall]().buildTransaction(body)
-        elif (len(self.inputStuct) == 1): 
-            mintFunction = self.contract.functions[self.mintFunctionCall](argsOrder[0]).buildTransaction(body)
-        elif (len(self.inputStuct) == 2): 
-            mintFunction = self.contract.functions[self.mintFunctionCall](argsOrder[0],argsOrder[1]).buildTransaction(body)
+
+        if (self.mode != "flipstate"):
+            if (len(self.inputStuct) == 0): #no arguments
+                mintFunction = self.contract.functions[self.mintFunctionCall]().buildTransaction(body)
+            elif (len(self.inputStuct) == 1): 
+                mintFunction = self.contract.functions[self.mintFunctionCall](argsOrder[0]).buildTransaction(body)
+            elif (len(self.inputStuct) == 2): 
+                mintFunction = self.contract.functions[self.mintFunctionCall](argsOrder[0],argsOrder[1]).buildTransaction(body)
+            else:
+                mintFunction = None
         else:
-            mintFunction = None
-        
+            taskLogger({"status" : "process","message":"Encoding data","prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
+            data=self.contract.encodeABI(fn_name=self.mintFunctionCall,args=argsOrder)
+            body['data'] = data
+            body['gas'] = self.gasLimit
+            body['to'] =  self.contractAddress
+            body['chainId']= 1 
+            mintFunction = body
+
         self.mintFunction = mintFunction
 
 
@@ -321,7 +437,7 @@ class mint():
             'maxFeePerGas': web3Connection.toWei(self.maxGasFee,'gwei'),
             'maxPriorityFeePerGas' : web3Connection.toWei(self.maxPriorityFee,'gwei')
         }
-        if (self.gasMode == "auto"):
+        if (self.gasMode == "auto" and self.mode!="flipstate"):
             taskLogger({"status":"process","message":"Auto Gas selected","prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
             del body['maxFeePerGas']
             del body['maxPriorityFeePerGas']
