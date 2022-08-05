@@ -54,12 +54,8 @@ class mint():
         self.mintFunction = None
         self.gasLimit = gasLimit
         self.functionToMonitor = functionToMonitor
-        if (self.mode == "flipstate"):
-            try:
-                self.paramToMonitor = json.loads(paramToMonitor)
-            except:
-                taskLogger({"status" : "error","message":"Flipstate param is incorrect!","prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
-                time.sleep(1000)
+        self.paramToMonitor = paramToMonitor
+
 
     async def handleTxn(self,transaction,unsubscribe):
         global cachedFlip
@@ -93,7 +89,21 @@ class mint():
         else:
             taskLogger({"status" : "warn","message":"Pending transaction not matched, ignoring! {} : {}".format(decodedFunc,decodedParams),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
 
+    def monitor(self):
+        while True:
+            try:
+                response = self.contract.functions[self.functionToMonitor]().call()
+                if (str(response) == str(self.paramToMonitor)):
+                    taskLogger({"status" : "success","message":"Matched monitor response - {}".format(str(response)),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
+                    break
+                else:                
+                    taskLogger({"status" : "warn","message":"Monitoring function {} , current response: {}".format(self.functionToMonitor,),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
+                    time.sleep(0.5)
+            except Exception as e:
+                taskLogger({"status" : "warn","message":"Failed monitoring function - {}".format(e),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
+                time.sleep(0.5)
 
+        self.mint()
 
     def startStream(self,addressToMonitor):
         stream.subscribe_address(addressToMonitor, self.handleFlip)
@@ -236,6 +246,8 @@ class mint():
         self.connect()
         if (self.mode == "flipstate"):
             self.Startflipstate()
+        elif (self.mode == "monitor"):
+            self.monitor()
         else:
             self.mint()
 
@@ -340,8 +352,8 @@ class mint():
 
 
     def buildTxn(self,body):
+        forceTxnModes = ['flipstate','monitor']
         taskLogger({"status" : "process","message":"Building transaction","prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
-
         argsOrder = []
 
         if (self.inputStuct == None): #might never happen
@@ -366,7 +378,7 @@ class mint():
             elif (i['type'] == "address"):
                 argsOrder.append(self.walletAddress)
 
-        if (self.mode != "flipstate"):
+        if (self.mode not in forceTxnModes):
             if (len(self.inputStuct) == 0): #no arguments
                 mintFunction = self.contract.functions[self.mintFunctionCall]().buildTransaction(body)
             elif (len(self.inputStuct) == 1): 
@@ -530,5 +542,5 @@ class mint():
                         e = e.split("execution reverted: ")[1]   
                     except:
                         pass                      
-                    taskLogger({"status" : "warn","message":"Monitoring - {}".format(e),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
+                    taskLogger({"status" : "warn","message":"Failed sending transaction - {}".format(e),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
                     time.sleep(0.5)

@@ -1,1 +1,3 @@
 *.pyc
+dev/**
+app_data/**
