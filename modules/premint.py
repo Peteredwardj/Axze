@@ -141,7 +141,7 @@ class premint():
                 else:
                     taskObject = {'url':self.targetUrl,'name':"@{}".format(self.twitterToken),'status': "error",'taskType':"Premint Connect",'statusMessage':'Failed connecting socials','wallet':self.wallet,'discord':self.discordToken,'twitter':self.twitterToken,'proxy':self.proxy,'errorMessage':message,'twitterProj':"none",'discordProj':"none",'image':"https://cdn.discordapp.com/attachments/837783679810928671/999220088903319612/AXZE_PFP_FIX.jpg"}
                     updateTitleCall.addFail()
-                webhookLog(taskObject)  
+                webhookLog(taskObject,self.session)  
             else:
                 updateTitleCall.addSuccess()
 
@@ -331,7 +331,7 @@ class premint():
 
             taskLogger({"status" : "error","message":"Failed fetching token - {}".format(errMsg),"prefix":self.prefix},self.taskId)
             taskObject = {'url':self.targetUrl,'name':self.name,'status': "error",'taskType':"Premint",'statusMessage':'Failed fetching token','wallet':self.wallet,'discord':self.discordToken,'twitter':self.twitterToken,'proxy':self.proxy,'errorMessage':"Failed fetching Token - {}".format(errMsg),'twitterProj':self.twitterReq,'discordProj':self.discordReq,'image':self.image}
-            webhookLog(taskObject)  
+            webhookLog(taskObject,self.session)  
             stagger -=1 
             return
         
@@ -375,7 +375,7 @@ class premint():
             res,message = likeTweet(self.twitterToken,reqTweet,self.session,self.prefix,self.taskId)
             if (res == False):
                 taskObject = {'url':self.targetUrl,'name':self.name,'status': "error",'taskType':"Premint - Twitter Like/RT",'statusMessage':'Failed liking/Rting Tweet','wallet':self.wallet,'discord':self.discordToken,'twitter':self.twitterToken,'proxy':self.proxy,'errorMessage':"Failed liking/Rting tweet - {}".format(message),'twitterProj':self.twitterReq,'discordProj':self.discordReq,'image':self.image}
-                webhookLog(taskObject)  
+                webhookLog(taskObject,self.session)  
                 return
 
         res = soup.find("span",{"class":"strong c-black"})
@@ -476,7 +476,7 @@ class premint():
                     if (self.verify()):#check if it is submitted
                         updateTitleCall.addSuccess()
                         taskObject = {'url':self.targetUrl,'name':self.name,'status': "success",'taskType':"Premint",'statusMessage':'Successfully submitted entry','wallet':self.wallet,'discord':self.discordToken,'twitter':self.twitterToken,'proxy':self.proxy,'errorMessage':None,'twitterProj':self.twitterReq,'discordProj':self.discordReq,'image':self.image}
-                        webhookLog(taskObject)  
+                        webhookLog(taskObject,self.session)  
                         break
                     else: #extract the error message
                         updateTitleCall.addFail()
@@ -488,7 +488,7 @@ class premint():
                             resMsg = res.text
                         taskLogger({"status" : "error","message":"Failed submitting entry - {}".format(resMsg),"prefix":self.prefix},self.taskId)
                         taskObject = {'url':self.targetUrl,'name':self.name,'status': "error",'taskType':"Premint",'statusMessage':'Failed submitting entry','wallet':self.wallet,'discord':self.discordToken,'twitter':self.twitterToken,'proxy':self.proxy,'errorMessage':resMsg,'twitterProj':self.twitterReq,'discordProj':self.discordReq,'image':self.image}
-                        webhookLog(taskObject)  
+                        webhookLog(taskObject,self.session)  
                         retryCount = 3
                         break
                     '''else:
@@ -570,20 +570,20 @@ class premint():
             updateTitleCall.addFail()
             taskLogger({"status" : "error","message":"Lost raffle","prefix":self.prefix},self.taskId)
             taskObject = {'url':self.targetUrl,'name':self.name,'status': "error",'taskType':"Premint",'statusMessage':'😢 Lost Raffle 😢','wallet':self.wallet,'discord':self.discordToken,'twitter':self.twitterToken,'proxy':self.proxy,'errorMessage':"You were not selected!",'twitterProj':self.twitterReq,'discordProj':self.discordReq,'image':self.image}
-            #webhookLog(taskObject) don't send lost raffle webhook
+            #webhookLog(taskObject,self.session) don't send lost raffle webhook
             stagger -= 1
             return True #we don't want to loop retry for a lost raffle
         elif ("You were selected!" in respMessage or respSymbol =="🏆"):
             updateTitleCall.addSuccess()
             taskLogger({"status" : "success","message":"Won raffle","prefix":self.prefix},self.taskId)
             taskObject = {'url':self.targetUrl,'name':self.name,'status': "success",'taskType':"PremintWin",'statusMessage':'🏆 Won Raffle 🏆','wallet':self.wallet,'discord':self.discordToken,'twitter':self.twitterToken,'proxy':self.proxy,'errorMessage':"You were selected!",'twitterProj':self.twitterReq,'discordProj':self.discordReq,'image':self.image}
-            webhookLog(taskObject)
+            webhookLog(taskObject,self.session)
             stagger -=1 
             return True 
         else:
             taskLogger({"status" : "warn","message":"Unknown response - {}".format(respMessage),"prefix":self.prefix},self.taskId)
             taskObject = {'url':self.targetUrl,'name':self.name,'status': "error",'taskType':"Premint",'statusMessage':'Unknown response','wallet':self.wallet,'discord':self.discordToken,'twitter':self.twitterToken,'proxy':self.proxy,'errorMessage':respMessage,'twitterProj':self.twitterReq,'discordProj':self.discordReq,'image':self.image}
-            webhookLog(taskObject)
+            webhookLog(taskObject,self.session)
             self.proceed = True
             stagger -= 1
             return True
@@ -605,12 +605,12 @@ class premint():
                 res,message = browserTask(self.twitterToken,self.password,self.discordToken,self.twitterReq,self.prefix,self.taskId,self.session,self.mode)
                 if (res!= True):
                     taskObject = {'url':self.targetUrl,'name':self.targetUrl,'status': "error",'taskType':"Premint",'statusMessage':'Failed twitter follow','wallet':str(self.wallet),'discord':self.discordToken,'twitter':self.twitterToken,'proxy':self.proxy,'errorMessage':message,'twitterProj':self.twitterReq,'discordProj':self.discordReq,'image':"https://pbs.twimg.com/profile_images/1505785782002339840/mgeaHOqx_400x400.jpg"}
-                    webhookLog(taskObject)
+                    webhookLog(taskObject,self.session)
                     return False
             res,message = followTwitter(self.twitterToken,self.twitterReq,self.session,self.prefix,self.taskId)
             if (res!= True):
                 taskObject = {'url':self.targetUrl,'name':self.targetUrl,'status': "error",'taskType':"Premint",'statusMessage':'Failed twitter follow','wallet':str(self.wallet),'discord':self.discordToken,'twitter':self.twitterToken,'proxy':self.proxy,'errorMessage':message,'twitterProj':self.twitterReq,'discordProj':self.discordReq,'image':"https://pbs.twimg.com/profile_images/1505785782002339840/mgeaHOqx_400x400.jpg"}
-                webhookLog(taskObject)
+                webhookLog(taskObject,self.session)
             return res
         
     
@@ -648,11 +648,11 @@ class premint():
             else: 
                 taskLogger({"status" : "error","message":"Failed Transaction [{} ETH -> {}]".format(amount,nextWallet),"prefix":"({},{}) GWEI".format(maxGasFee,maxPriorityFee)},self.taskId)
                 taskObject = {"status": "revert","taskType": "Premint Chain - Reverted","receiver": nextWallet,"value": 0,"gas" : 21000 , "mode": "Premint Chain" , "wallet" : self.wallet , "reason":"Unespecified" , "maxFee" :str(maxGasFee) + "," + str(maxPriorityFee)}
-                webhookLog(taskObject)
+                webhookLog(taskObject,self.session)
         except Exception as e:
             taskLogger({"status" : "error","message":"Failed Transaction [{} ETH -> {}] - {}".format(amount,nextWallet,str(e)),"prefix":"({},{}) GWEI".format(maxGasFee,maxPriorityFee)},self.taskId)
             taskObject = {"status": "revert","taskType": "Premint Chain - Reverted","receiver": nextWallet,"value": 0,"gas" : 21000 , "mode": "Premint Chain" , "wallet" : self.wallet , "reason":str(e) , "maxFee" :str(maxGasFee) + "," + str(maxPriorityFee)}
-            webhookLog(taskObject)
+            webhookLog(taskObject,self.session)
         
         return
         
