@@ -26,7 +26,7 @@ siteKey = "6Lf9yOodAAAAADyXy9cQncsLqD9Gl4NCBx3JCR_x"
 workingProxy = []
 
 class premint():
-    def __init__(self,targetUrl,wallet,walletKey,twitterToken,twitterPassword,discordToken,accessToken,accessTokenSecret,consumerKey,consumerSecret,mode,taskId,discordMode="default",reactParam =None):
+    def __init__(self,targetUrl,wallet,walletKey,twitterToken,twitterPassword,discordToken,accessToken,accessTokenSecret,consumerKey,consumerSecret,mode,taskId,discordMode="default",reactParam =None,transferTask = None):
        self.targetUrl = targetUrl
        self.wallet = wallet.lower()
        self.walletKey = walletKey
@@ -61,8 +61,7 @@ class premint():
        self.discordMode = discordMode
        self.reactParam = reactParam
        self.likeReq = "unspecified"
-
-
+       self.transferTask = transferTask
 
     def connect(self):
         global web3Connection
@@ -556,7 +555,7 @@ class premint():
             updateTitleCall.addFail()
             taskLogger({"status" : "error","message":"Lost raffle","prefix":self.prefix},self.taskId)
             taskObject = {'url':self.targetUrl,'name':self.name,'status': "error",'taskType':"Premint",'statusMessage':'😢 Lost Raffle 😢','wallet':self.wallet,'discord':self.discordToken,'twitter':self.twitterToken,'proxy':self.proxy,'errorMessage':"You were not selected!",'twitterProj':self.twitterReq,'discordProj':self.discordReq,'image':self.image}
-            webhookLog(taskObject)
+            #webhookLog(taskObject) don't send lost raffle webhook
             stagger -= 1
             return True #we don't want to loop retry for a lost raffle
         elif ("You were selected!" in respMessage or respSymbol =="🏆"):
@@ -600,7 +599,7 @@ class premint():
             return res
         
     
-    '''def getNonce(self):
+    def getNonce(self):
         taskLogger({"status" : "process","message":"Fetching Nonce","prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
         try:
             return web3Connection.eth.get_transaction_count(self.wallet)
@@ -610,21 +609,33 @@ class premint():
             self.getNonce()
 
     def transfer(self):
-        self.nonce() = 
+        nextWallet = self.transferTask['nextWallet']
+        maxGasFee = self.transferTask['maxGasFee']
+        maxPriorityFee = self.transferTask['maxPriorityFee']
+        amount = self.transferTask['amount']
         body = {
-            'nonce' : self.nonce(),
-            'to' : self.walletAddress,
-            'value' : web3Connection.toWei(0,'ether'),
+            'nonce' : self.getNonce(),
+            'to' : nextWallet,
+            'value' : web3Connection.toWei(amount,'ether'),
             'gas' : 21000,
-            'maxFeePerGas': web3Connection.toWei(self.maxGasFee,'gwei'),
-            'maxPriorityFeePerGas' : web3Connection.toWei(self.maxPriorityFee,'gwei'),
+            'maxFeePerGas': web3Connection.toWei(maxGasFee,'gwei'),
+            'maxPriorityFeePerGas' : web3Connection.toWei(maxPriorityFee,'gwei'),
             'chainId':1
         }
-
-        taskLogger({"status" : "warn","message":"Cancelling Transaction","prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
-        signedTransaction = web3Connection.eth.account.sign_transaction(body,self.walletKey)
-        taskLogger({"status" : "process","message":"Submitting Transaction","prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
-        result = web3Connection.eth.send_raw_transaction(signedTransaction.rawTransaction)'''
-
-    def discordMethod(self):
-        pass
+        try:
+            taskLogger({"status" : "warn","message":"Signing Transaction","prefix":"({},{}) GWEI".format(maxGasFee,maxPriorityFee)},self.taskId)
+            signedTransaction = web3Connection.eth.account.sign_transaction(body,self.walletKey)
+            taskLogger({"status" : "process","message":"Submitting Transaction [{} ETH -> {}]".format(amount,nextWallet),"prefix":"({},{}) GWEI".format(maxGasFee,maxPriorityFee)},self.taskId)
+            result = web3Connection.eth.send_raw_transaction(signedTransaction.rawTransaction)
+            statusTrack = web3Connection.eth.wait_for_transaction_receipt(result)
+            if (statusTrack['status']==1): #successful transfer 
+                taskLogger({"status" : "success","message":"Succesful Transaction [{} ETH -> {}]".format(amount,nextWallet),"prefix":"({},{}) GWEI".format(maxGasFee,maxPriorityFee)},self.taskId)
+            else: 
+                taskLogger({"status" : "error","message":"Failed Transaction [{} ETH -> {}]".format(amount,nextWallet),"prefix":"({},{}) GWEI".format(maxGasFee,maxPriorityFee)},self.taskId)
+                taskObject = {"status": "revert","taskType": "Premint Chain - Reverted","receiver": nextWallet,"value": 0,"gas" : 21000 , "mode": "Premint Chain" , "wallet" : nextWallet , "reason":"Unespecified" , "maxFee" :str(maxGasFee) + "," + str(maxPriorityFee)}
+                webhookLog(taskObject)
+        except Exception as e:
+            taskLogger({"status" : "error","message":"Failed Transaction [{} ETH -> {}] - {}".format(amount,nextWallet,str(e)),"prefix":"({},{}) GWEI".format(maxGasFee,maxPriorityFee)},self.taskId)
+            taskObject = {"status": "revert","taskType": "Premint Chain - Reverted","receiver": nextWallet,"value": 0,"gas" : 21000 , "mode": "Premint Chain" , "wallet" : nextWallet , "reason":str(e) , "maxFee" :str(maxGasFee) + "," + str(maxPriorityFee)}
+            webhookLog(taskObject)
+        
