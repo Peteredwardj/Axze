@@ -511,7 +511,7 @@ class premint():
             if (retryCount >= retryTreshold and forceTransfer == False):
                 taskLogger({"status" : "error","message":"Premint Chain task killed, force transfer is not active","prefix":self.prefix},self.taskId)
                 return
-            self.verify()
+            self.transfer()
 
     
     def verify(self):
