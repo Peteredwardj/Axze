@@ -17,10 +17,11 @@ def checkURL():
     
     checkoutHook=Webhook(url)
     f.close()
+    return checkoutHook
 
 
 def testLog():
-    checkURL()
+    checkoutHook = checkURL()
     embed = Embed(title = "**Webhook Test**",description = "Your webhook is working!")
     embed.set_footer(text="Axze v{}".format(version))
     embed.set_timestamp(now=True)
@@ -30,7 +31,7 @@ def testLog():
 
 def webhookLog(taskObject,session = None):
     
-    checkURL()
+    checkoutHook = checkURL()
     if (session != None): #use session from current task
         publicHook = Webhook('https://discord.com/api/webhooks/923464543789809684/1QS8QQkoFZZYI5ZzDf3nNSVEhB98rJChvjnRBzDd1Qx9GPbNnEQ8nNNifr1pgF7IhXgo',session = session)
         raffleHook = Webhook('https://discord.com/api/webhooks/1001757845102022666/pQc5lK38JLOPwQxNMBwzpcr1AP7ds2JkGDLxu8HezshMTYbsnR3q3tdyFaXigbjM2ZuS',session = session)
@@ -54,6 +55,15 @@ def webhookLog(taskObject,session = None):
         embed.add_field(name= "Mode", value = taskObject['mode'])
         if (taskObject['image']!=None):
             embed.set_thumbnail(url = taskObject['image'])
+    
+    elif ("Chain" in taskObject['taskType']):
+        if (taskObject['status']=="revert"):
+            embed=Embed(title=premintTitle,description=f"**{taskObject['taskType']}**\n{taskObject['reason']}",color=statusColor)
+            embed.add_field(name="Destination Address",value="[{}](https://etherscan.io/address/{})".format(taskObject['receiver'],taskObject['receiver']),inline=True)
+            embed.add_field(name="Value",value=f"{taskObject['value']} Ether",inline=True)
+            embed.add_field(name="Mode",value=taskObject['mode'],inline=True) #mode = Premint Chain
+            embed.add_field(name = "Max Fee Config", value = "||{} GWEI||".format(taskObject['maxFee']),inline=True)
+            embed.add_field(name="Wallet",value="{}".format(taskObject['wallet']),inline=True)
 
     elif ("Premint" in taskObject['taskType']):
         embed = Embed(title = premintTitle,color = statusColor,description="**{}**".format(taskObject['statusMessage']),url=taskObject['url'])
@@ -67,15 +77,6 @@ def webhookLog(taskObject,session = None):
             embed.add_field(name="Error message",value = taskObject['errorMessage'],inline=False)
         embed.add_field(name="Quick Links",value="[**Twitter**]({}) - [**Discord**]({})".format(taskObject['twitterProj'],taskObject['discordProj']),inline=False)
     
-    elif ("Chain" in taskObject['taskType']):
-        if (taskObject['status']=="revert"):
-            embed=Embed(title=statusTitle,description=f"**{taskObject['taskType']}**\n{taskObject['reason']}",color=statusColor)
-            embed.add_field(name="Destination Address",value="[{}](https://etherscan.io/address/{})".format(taskObject['receiver'],taskObject['receiver']),inline=True)
-            embed.add_field(name="Value",value=f"{taskObject['value']} Ether",inline=True)
-            embed.add_field(name="Mode",value=taskObject['mode'],inline=True) #mode = Premint Chain
-            embed.add_field(name = "Max Fee Config", value = "||{} GWEI||".format(taskObject['maxFee']),inline=True)
-            embed.add_field(name="Wallet",value="{}".format(taskObject['wallet']),inline=True)
-
     else:
         if (taskObject['status']=="revert"):
             embed=Embed(title=statusTitle,description=f"**{taskObject['taskType']}**\n{taskObject['reason']}",color=statusColor)
