@@ -98,7 +98,7 @@ class mint():
                     break
                 else:                
                     taskLogger({"status" : "warn","message":"Monitoring function {} , current response: {}".format(self.functionToMonitor,),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
-                    time.sleep(0.5)
+                    time.sleep(0.2)
             except Exception as e:
                 taskLogger({"status" : "warn","message":"Failed monitoring function - {}".format(e),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
                 time.sleep(0.2)
