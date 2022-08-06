@@ -182,10 +182,11 @@ def taskHandler(mode,inputUrl,additionalParam = None):
         profiles = profileDict
         if (mode=="ethMint"):
             PATH = 'files/tasks.xlsx'
-            sheetData = pd.read_excel(PATH,engine='openpyxl',header = 0,names=['profile','contractAddress','mintFunc','quantity','amount','maxFeePerGas','maxPriorityFee','absoluteMax','autoAdjust','mode','cancel'],converters={'amount': lambda x: str(x)})
+            sheetData = pd.read_excel(PATH,engine='openpyxl',header = 0,names=['profile','contractAddress','mintFunc','quantity','amount','maxFeePerGas','maxPriorityFee','mode','monitorFunction','params','gasLimit','cancel'],converters={'amount': lambda x: str(x)})
             sheetData = sheetData.dropna()
             currentSheet = sheetData
             for i in sheetData.itertuples():
+                
                 profile = i.profile
                 contractAddress = i.contractAddress
                 mintFunc = i.mintFunc
@@ -193,23 +194,39 @@ def taskHandler(mode,inputUrl,additionalParam = None):
                 amount = float(i.amount)
                 maxFeePerGas = i.maxFeePerGas
                 maxPriorityFee = i.maxPriorityFee
-                absoluteMax = i.absoluteMax
-                mode = (i.mode).lower()
+                absoluteMax = 0
+                autoAdjust = False
                 gasConfig = "default"
+                mode = (i.mode).lower()
+
+                if (mode == "flipstate" or mode == "monitor"):
+                    functionToMonitor = i.monitorFunction
+                    monitorParams = i.params
+                    gasLimit = i.gasLimit
+                    if ("=" not in monitorParams):
+                        paramToMonitor = monitorParams
+                    else:
+                        paramToMonitor = {}
+                        splitParams = monitorParams.replace(" ","").split(",")
+                        for param in splitParams:
+                            extractedParams = param.split("=")
+                            paramToMonitor[extractedParams[0]] = extractedParams[1]
+                else:
+                    gasLimit = None
+                    functionToMonitor = None
+                    monitorParams = None
+
+
                 if ((i.cancel).lower()=="n"):
                     cancel = False
                 else:
                     cancel = True
                 if (maxFeePerGas == 0 or maxPriorityFee==0):
                     gasConfig = "auto"
-                if (i.autoAdjust.lower() == "y"):
-                    autoAdjust = True
-                else:
-                    autoAdjust = False
                 if (profile not in profiles):
                     print(red+"{} not found in wallet.xlsx, skipping!".format(profile)+reset)
                 else:
-                    objectDict = {"object":mint(amount,quantity,profiles[profile]['wallet'],profiles[profile]['apiKey'],contractAddress,mintFunc,maxFeePerGas,maxPriorityFee,absoluteMax,autoAdjust,profile,gasConfig,mode),"maxFeePerGas" : maxFeePerGas, "maxPriorityFee": maxPriorityFee , "cancel" : cancel}
+                    objectDict = {"object":mint(amount,quantity,profiles[profile]['wallet'],profiles[profile]['apiKey'],contractAddress,mintFunc,maxFeePerGas,maxPriorityFee,absoluteMax,autoAdjust,profile,gasConfig,mode,gasLimit,functionToMonitor,paramToMonitor),"maxFeePerGas" : maxFeePerGas, "maxPriorityFee": maxPriorityFee , "cancel" : cancel}
                     currentObjectSet.append(objectDict)
                     #t = threading.Thread(target=mint(amount,quantity,profiles[profile]['wallet'],profiles[profile]['apiKey'],contractAddress,mintFunc,maxFeePerGas,maxPriorityFee,absoluteMax,autoAdjust,profile,gasConfig,mode).order)
                     t = threading.Thread(target=objectDict['object'].order)
