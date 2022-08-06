@@ -386,7 +386,8 @@ class premint():
         if (self.discordReq == None):
             taskLogger({"status" : "warn","message":"Could not extract discord invite, skipping","prefix":self.prefix},self.taskId)
 
-        self.submit()
+        return self.submit()
+        
 
     def requestSolutionMon(self):
         endPoint="https://api.capmonster.cloud/createTask"
@@ -511,7 +512,8 @@ class premint():
             if (retryCount >= retryTreshold and forceTransfer == False):
                 taskLogger({"status" : "error","message":"Premint Chain task killed, force transfer is not active","prefix":self.prefix},self.taskId)
                 return
-            self.transfer()
+            return self.transfer()
+           
 
     
     def verify(self):
@@ -615,9 +617,9 @@ class premint():
         
     
     def getNonce(self):
-        taskLogger({"status" : "process","message":"Fetching Nonce","prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
+        taskLogger({"status" : "process","message":"Fetching Nonce","prefix":"({},{}) GWEI".format(self.transferTask['maxGasFee'],self.transferTask['maxPriorityFee'])},self.taskId)
         try:
-            return web3Connection.eth.get_transaction_count(self.wallet)
+            return web3Connection.eth.get_transaction_count(Web3.toChecksumAddress(self.wallet))
         except Exception as e:
             taskLogger({"status" : "error","message":"Failed fetching nonce - {}".format(str(e)),"prefix":"({},{}) GWEI".format( self.transferTask['maxGasFee'], self.transferTask['maxPriorityFee'])},self.taskId)
             time.sleep(1)
@@ -645,14 +647,17 @@ class premint():
             statusTrack = web3Connection.eth.wait_for_transaction_receipt(result)
             if (statusTrack['status']==1): #successful transfer 
                 taskLogger({"status" : "success","message":"Succesful Transaction [{} ETH -> {}]".format(amount,nextWallet),"prefix":"({},{}) GWEI".format(maxGasFee,maxPriorityFee)},self.taskId)
+                return True
             else: 
                 taskLogger({"status" : "error","message":"Failed Transaction [{} ETH -> {}]".format(amount,nextWallet),"prefix":"({},{}) GWEI".format(maxGasFee,maxPriorityFee)},self.taskId)
                 taskObject = {"status": "revert","taskType": "Premint Chain - Reverted","receiver": nextWallet,"value": 0,"gas" : 21000 , "mode": "Premint Chain" , "wallet" : self.wallet , "reason":"Unespecified" , "maxFee" :str(maxGasFee) + "," + str(maxPriorityFee)}
                 webhookLog(taskObject,self.session)
+                return False
         except Exception as e:
             taskLogger({"status" : "error","message":"Failed Transaction [{} ETH -> {}] - {}".format(amount,nextWallet,str(e)),"prefix":"({},{}) GWEI".format(maxGasFee,maxPriorityFee)},self.taskId)
             taskObject = {"status": "revert","taskType": "Premint Chain - Reverted","receiver": nextWallet,"value": 0,"gas" : 21000 , "mode": "Premint Chain" , "wallet" : self.wallet , "reason":str(e) , "maxFee" :str(maxGasFee) + "," + str(maxPriorityFee)}
             webhookLog(taskObject,self.session)
+            return False
         
-        return
+       
         

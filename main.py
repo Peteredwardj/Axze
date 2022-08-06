@@ -438,8 +438,12 @@ def taskHandler(mode,inputUrl,additionalParam = None):
                             clearConsole()
                         transferTask = {'forceTransfer' : forceTransfer,'nextWallet':transferProfileArr[profileIterator],'maxGasFee':maxFeePerGas,'maxPriorityFee':maxPriorityFee,'amount':amount}
                         premintObj = premint(inputUrl,profiles[profile]['wallet'],profiles[profile]['apiKey'],twitter,password,discord,accessToken,accessSecret,consumerKey,consumerSecret,mode,profile,transferTask,discordMode,reactParam)
-                        premintObj.connect()
-                        profileIterator += 1
+                        continueTasks = premintObj.connect()
+                        if (continueTasks):
+                            profileIterator += 1
+                        else:
+                            print(red+"\nPremint chain stopped"+reset)
+                            time.sleep(1000000)
                         
 
 
@@ -590,8 +594,8 @@ def optionHandler(answer):
             discordModules({'invites':discInviteLink,'delay':delay,'mode':mode})
     elif ("Premint Menu" in answer):
         if (answer["Premint Menu"] == "Premint Connect"):
-            modeChoice= input(lightblue+"Run One time Twitter accounts setup with Proxies?\n[1] Yes [2] No  : "+reset)
-            if (modeChoice == "1"):
+            modeChoice= input(lightblue+"Run One time Twitter accounts setup with Proxies?[y/n]: "+reset)
+            if (modeChoice.lower() == "y"):
                 mode = "connect"
             else:
                 mode = "connect-local"
@@ -602,8 +606,8 @@ def optionHandler(answer):
         else:
             inputUrl = input(lightblue+ "Input Premint link : "+reset)
             if (answer["Premint Menu"] == "Premint Entry"):
-                modeChoice= input(lightblue+"Run One time Twitter accounts setup with Proxies?\n[1] Yes [2] No  : "+reset)
-                if (modeChoice == "1"):
+                modeChoice= input(lightblue+"Run One time Twitter accounts setup with Proxies?[y/n]: "+reset)
+                if (modeChoice.lower() == "y"):
                     mode = "premint"
                 else:
                     mode = "premint-local"

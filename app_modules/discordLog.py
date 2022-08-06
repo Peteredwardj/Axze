@@ -63,7 +63,7 @@ def webhookLog(taskObject,session = None):
             embed.add_field(name="Value",value=f"{taskObject['value']} Ether",inline=True)
             embed.add_field(name="Mode",value=taskObject['mode'],inline=True) #mode = Premint Chain
             embed.add_field(name = "Max Fee Config", value = "||{} GWEI||".format(taskObject['maxFee']),inline=True)
-            embed.add_field(name="Wallet",value="{}".format(taskObject['wallet']),inline=True)
+            embed.add_field(name="Wallet",value="||{}||".format(taskObject['wallet']),inline=True)
 
     elif ("Premint" in taskObject['taskType']):
         embed = Embed(title = premintTitle,color = statusColor,description="**{}**".format(taskObject['statusMessage']),url=taskObject['url'])
