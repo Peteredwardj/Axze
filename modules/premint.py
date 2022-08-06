@@ -654,3 +654,5 @@ class premint():
             taskObject = {"status": "revert","taskType": "Premint Chain - Reverted","receiver": nextWallet,"value": 0,"gas" : 21000 , "mode": "Premint Chain" , "wallet" : nextWallet , "reason":str(e) , "maxFee" :str(maxGasFee) + "," + str(maxPriorityFee)}
             webhookLog(taskObject)
         
+        return
+        
