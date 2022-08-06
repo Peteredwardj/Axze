@@ -619,7 +619,7 @@ class premint():
         try:
             return web3Connection.eth.get_transaction_count(self.wallet)
         except Exception as e:
-            print(e)
+            taskLogger({"status" : "error","message":"Failed fetching nonce - {}".format(str(e)),"prefix":"({},{}) GWEI".format( self.transferTask['maxGasFee'], self.transferTask['maxPriorityFee'])},self.taskId)
             time.sleep(1)
             self.getNonce()
 
@@ -647,11 +647,11 @@ class premint():
                 taskLogger({"status" : "success","message":"Succesful Transaction [{} ETH -> {}]".format(amount,nextWallet),"prefix":"({},{}) GWEI".format(maxGasFee,maxPriorityFee)},self.taskId)
             else: 
                 taskLogger({"status" : "error","message":"Failed Transaction [{} ETH -> {}]".format(amount,nextWallet),"prefix":"({},{}) GWEI".format(maxGasFee,maxPriorityFee)},self.taskId)
-                taskObject = {"status": "revert","taskType": "Premint Chain - Reverted","receiver": nextWallet,"value": 0,"gas" : 21000 , "mode": "Premint Chain" , "wallet" : nextWallet , "reason":"Unespecified" , "maxFee" :str(maxGasFee) + "," + str(maxPriorityFee)}
+                taskObject = {"status": "revert","taskType": "Premint Chain - Reverted","receiver": nextWallet,"value": 0,"gas" : 21000 , "mode": "Premint Chain" , "wallet" : self.wallet , "reason":"Unespecified" , "maxFee" :str(maxGasFee) + "," + str(maxPriorityFee)}
                 webhookLog(taskObject)
         except Exception as e:
             taskLogger({"status" : "error","message":"Failed Transaction [{} ETH -> {}] - {}".format(amount,nextWallet,str(e)),"prefix":"({},{}) GWEI".format(maxGasFee,maxPriorityFee)},self.taskId)
-            taskObject = {"status": "revert","taskType": "Premint Chain - Reverted","receiver": nextWallet,"value": 0,"gas" : 21000 , "mode": "Premint Chain" , "wallet" : nextWallet , "reason":str(e) , "maxFee" :str(maxGasFee) + "," + str(maxPriorityFee)}
+            taskObject = {"status": "revert","taskType": "Premint Chain - Reverted","receiver": nextWallet,"value": 0,"gas" : 21000 , "mode": "Premint Chain" , "wallet" : self.wallet , "reason":str(e) , "maxFee" :str(maxGasFee) + "," + str(maxPriorityFee)}
             webhookLog(taskObject)
         
         return
