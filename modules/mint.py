@@ -78,8 +78,8 @@ class mint():
             transactionTo = transaction["to"]
             maxFeePerGas = transaction["maxFeePerGasGwei"]
             maxPriorityFeePerGas = transaction["maxPriorityFeePerGasGwei"]
-            cachedFlip[self.contractAddress]['maxFeePerGas'] = float(maxFeePerGas)*0.9
-            cachedFlip[self.contractAddress]['maxPriorityFeePerGas'] = float(maxPriorityFeePerGas)*0.9
+            cachedFlip[self.contractAddress]['maxFeePerGas'] = float(maxFeePerGas)
+            cachedFlip[self.contractAddress]['maxPriorityFeePerGas'] = float(maxPriorityFeePerGas)
             cachedFlip[self.contractAddress]['proceed'] = True
             self.maxGasFee = cachedFlip[self.contractAddress]['maxFeePerGas']
             self.maxPriorityFee = cachedFlip[self.contractAddress]['maxPriorityFeePerGas']
