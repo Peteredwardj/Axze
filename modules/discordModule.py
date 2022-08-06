@@ -155,7 +155,8 @@ class inviteTask():
                 'x-discord-locale': 'en-US',
                 'x-kl-ajax-request': 'Ajax_Request',
                 }
-
+            
+        self.session.headers.update(headers)
         while True:
             try:
                 taskLogger({'status':"process",'message':"Getting server details",  'prefix':self.token},self.taskId)
