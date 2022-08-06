@@ -186,7 +186,6 @@ def taskHandler(mode,inputUrl,additionalParam = None):
             sheetData = sheetData.dropna()
             currentSheet = sheetData
             for i in sheetData.itertuples():
-                
                 profile = i.profile
                 contractAddress = i.contractAddress
                 mintFunc = i.mintFunc
