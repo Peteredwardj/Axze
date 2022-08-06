@@ -101,7 +101,7 @@ class mint():
                     time.sleep(0.5)
             except Exception as e:
                 taskLogger({"status" : "warn","message":"Failed monitoring function - {}".format(e),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
-                time.sleep(0.5)
+                time.sleep(0.2)
 
         self.mint()
 
