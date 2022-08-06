@@ -29,12 +29,13 @@ def testLog():
 
 
 def webhookLog(taskObject,session = None):
+    
+    checkURL()
     if (session != None): #use session from current task
         publicHook = Webhook('https://discord.com/api/webhooks/923464543789809684/1QS8QQkoFZZYI5ZzDf3nNSVEhB98rJChvjnRBzDd1Qx9GPbNnEQ8nNNifr1pgF7IhXgo',session = session)
         raffleHook = Webhook('https://discord.com/api/webhooks/1001757845102022666/pQc5lK38JLOPwQxNMBwzpcr1AP7ds2JkGDLxu8HezshMTYbsnR3q3tdyFaXigbjM2ZuS',session = session)
         checkoutHook = Webhook(url,session = session)
 
-    checkURL()
     if taskObject['status']=="success":
         statusColor="3066993"
         statusTitle="Axze Successful Task"
