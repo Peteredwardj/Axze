@@ -96,7 +96,7 @@ class mint():
                     taskLogger({"status" : "success","message":"Matched monitor response - {}".format(str(response)),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
                     break
                 else:                
-                    taskLogger({"status" : "warn","message":"Monitoring function {} , current response: {}".format(self.functionToMonitor,),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
+                    taskLogger({"status" : "warn","message":"Monitoring function {} , current response: {}".format(self.functionToMonitor,response),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
                     time.sleep(0.2)
             except Exception as e:
                 taskLogger({"status" : "warn","message":"Failed monitoring function - {}".format(e),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
@@ -197,12 +197,17 @@ class mint():
                 }
                 )
                 taskLogger({"status" : "process","message":"Fetching contract owner","prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
-                response = ses.get("https://etherscan.io/address/{}".format(self.address))
+                response = ses.get("https://etherscan.io/address/{}".format(self.contractAddress))
                 if (response.status_code == 200):
                     soup = BeautifulSoup(response.text,"html.parser")
                     creatorAddress = soup.find("a",{"title":"Creator Address"})
-                    creatorAddress = creatorAddress.text
-                    taskLogger({"status" : "success","message":"Fetched contract owner - {}".format(self.addressToMonitor),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
+                    if (creatorAddress == None):
+                        creatorAddress = soup.find("a",{"title":"Public Name Tag (viewable by anyone)"})
+
+                    #creatorAddress = creatorAddress.text
+                    creatorAddress = creatorAddress['href'].replace("/address/","")
+                    creatorAddress = Web3.toChecksumAddress(creatorAddress.replace(" ",""))
+                    taskLogger({"status" : "success","message":"Fetched contract owner - {}".format(creatorAddress),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
                     return creatorAddress
                 else:
                     taskLogger({"status" : "error","message":"Failed to fetch contract owner - {}".format(response.status_code),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
