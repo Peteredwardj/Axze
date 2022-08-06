@@ -327,12 +327,47 @@ def taskHandler(mode,inputUrl,additionalParam = None):
                 pass
             else:
                 mode = "default"
-            
 
             PATH = 'files/premintProfiles.xlsx'
+            taskCtr = 0
+            sourceWallet = ""
+            transferProfileArr = []
+
+            sheetData = pd.read_excel(PATH,engine='openpyxl',header = 0,names=['profile','discord','twitter','loginMode','password','consumerKey','consumerSecret','accessToken','accessSecret'],na_filter=False)
+            for i in sheetData.itertuples():
+                if (i.profile == ''):
+                    continue
+
+                profile = i.profile
+                if (profile not in profiles):
+                    pass
+                else:
+                    wallet = profiles[profile]['wallet']
+                    if (sourceWallet == ""):
+                        sourceWallet = wallet
+                    else:
+                        transferProfileArr.append(wallet)
+                    taskCtr += 1
+            transferProfileArr.append(sourceWallet)
             discordMode = 'default'
             reactParam = None
+            runPremintChain = False
+            forceTransfer = False
             if (mode=="default"):
+                premintChain = input(lightblue+"Run Premint Chain? [y/n]: "+reset)
+                if (premintChain.lower() == "y"):
+                    amount = float(input(yellow2+ "Enter amount of Ethereum required : "+reset))
+                    maxFeePerGas = float(input(yellow2+ "Enter Max Fee per gas in GWEI : "+reset))
+                    maxPriorityFee = float(input(yellow2+"Enter Max Priority Fee in GWEI : "+reset))
+                    totalEstimatedGas = str(taskCtr*21000*maxFeePerGas*10**-9)[:6]
+                    agreeGas = input(yellow2+"Estimated max total gas spent for {} tasks is {}E\nContinue Premint Chain?[y/n]: ".format(taskCtr,totalEstimatedGas)+reset)
+                    if (agreeGas.lower() == "y"):
+                        forceTransferChoice= input(yellow2+"Force transfer to next wallet on submit failure?[y/n]: "+reset)
+                        if (forceTransferChoice.lower() == "y"):
+                            forceTransfer = True
+                        else:
+                            forceTransfer = False
+                        runPremintChain = True
                 runDiscord = input(lightblue+"Run Discord Modules for this premint? Input y or hit Enter to skip! : "+reset)
                 if (runDiscord.lower() == "y"):
                     discordChoiceInput = input(yellow2+"[1] Message React [2] Wick [Coming Soon] [3] Captcha Bot [Coming Soon]\nChoose Discord verification method: "+reset)
@@ -349,6 +384,7 @@ def taskHandler(mode,inputUrl,additionalParam = None):
             #sheetData = sheetData.dropna()
 
             currentSheet = sheetData
+            profileIterator = 0
             for i in sheetData.itertuples():
                 if (i.profile == ''):
                     continue
@@ -378,8 +414,18 @@ def taskHandler(mode,inputUrl,additionalParam = None):
                     pass
                     #print(red+"{} not found in wallets.xlsx, skipping!".format(profile)+reset)
                 else:
-                    t = threading.Thread(target=premint(inputUrl,profiles[profile]['wallet'],profiles[profile]['apiKey'],twitter,password,discord,accessToken,accessSecret,consumerKey,consumerSecret,mode,profile,discordMode,reactParam).connect)
-                    threadsArr.append(t)
+                    if (runPremintChain == False):
+                        t = threading.Thread(target=premint(inputUrl,profiles[profile]['wallet'],profiles[profile]['apiKey'],twitter,password,discord,accessToken,accessSecret,consumerKey,consumerSecret,mode,profile,None,discordMode,reactParam).connect)
+                        threadsArr.append(t)
+                    else:
+                        if (profileIterator == 0):
+                            clearConsole()
+                        transferTask = {'forceTransfer' : forceTransfer,'nextWallet':transferProfileArr[profileIterator],'maxGasFee':maxFeePerGas,'maxPriorityFee':maxPriorityFee,'amount':amount}
+                        premintObj = premint(inputUrl,profiles[profile]['wallet'],profiles[profile]['apiKey'],twitter,password,discord,accessToken,accessSecret,consumerKey,consumerSecret,mode,profile,transferTask,discordMode,reactParam)
+                        premintObj.connect()
+                        profileIterator += 1
+                        
+
 
         exitVar=True
     except Exception as e:
