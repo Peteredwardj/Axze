@@ -26,7 +26,7 @@ siteKey = "6Lf9yOodAAAAADyXy9cQncsLqD9Gl4NCBx3JCR_x"
 workingProxy = []
 
 class premint():
-    def __init__(self,targetUrl,wallet,walletKey,twitterToken,twitterPassword,discordToken,accessToken,accessTokenSecret,consumerKey,consumerSecret,mode,taskId,discordMode="default",reactParam =None,transferTask = None):
+    def __init__(self,targetUrl,wallet,walletKey,twitterToken,twitterPassword,discordToken,accessToken,accessTokenSecret,consumerKey,consumerSecret,mode,taskId,transferTask,discordMode="default",reactParam =None):
        self.targetUrl = targetUrl
        self.wallet = wallet.lower()
        self.walletKey = walletKey
@@ -460,7 +460,12 @@ class premint():
         if (self.captchaReq):
             self.requestSolutionMon()
 
+        retryCount = 0
+        retryTreshold = 3
         while True:
+            if (retryCount >= retryTreshold):
+                taskLogger({"status" : "error","message":"Exceeded max of {} retries, killing task!".format(retryTreshold),"prefix":self.prefix},self.taskId)
+                break
             try:
                 taskLogger({"status" : "process","message":"Submitting entry","prefix":self.prefix},self.taskId)
                 response = self.session.post(self.targetUrl,data = self.submitLoad,allow_redirects = True)
@@ -484,6 +489,7 @@ class premint():
                         taskLogger({"status" : "error","message":"Failed submitting entry - {}".format(resMsg),"prefix":self.prefix},self.taskId)
                         taskObject = {'url':self.targetUrl,'name':self.name,'status': "error",'taskType':"Premint",'statusMessage':'Failed submitting entry','wallet':self.wallet,'discord':self.discordToken,'twitter':self.twitterToken,'proxy':self.proxy,'errorMessage':resMsg,'twitterProj':self.twitterReq,'discordProj':self.discordReq,'image':self.image}
                         webhookLog(taskObject)  
+                        retryCount = 3
                         break
                     '''else:
                         updateTitleCall.addFail()
@@ -492,11 +498,20 @@ class premint():
                 else:
                     updateTitleCall.addFail()
                     taskLogger({"status" : "error","message":"Failed submitting entry - {}".format(response.status_code),"prefix":self.prefix},self.taskId)
+                    retryCount += 1
                     time.sleep(3)
             except Exception as e:
                 updateTitleCall.addFail()
                 taskLogger({"status" : "error","message":"Failed submitting entry - {}. Try to check requirements!".format(e),"prefix":self.prefix},self.taskId)
+                retryCount += 1
                 time.sleep(3)
+
+        if (self.transferTask!=None):
+            forceTransfer = self.transferTask['forceTransfer']
+            if (retryCount >= retryTreshold and forceTransfer == False):
+                taskLogger({"status" : "error","message":"Premint Chain task killed, force transfer is not active","prefix":self.prefix},self.taskId)
+                return
+            self.verify()
 
     
     def verify(self):
