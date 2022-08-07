@@ -65,7 +65,7 @@ class premint():
         web3Connection = Web3(Web3.HTTPProvider(cfNode))
         taskLogger({"status":"success", "message": "Connected to node","prefix":self.prefix},self.taskId)
         updateTitleCall.addRun()
-        self.initialize()
+        return self.initialize()
 
     def rotateProxy(self,retry=False):
         taskLogger({"status":"process", "message": "Rotating proxy","prefix":self.prefix},self.taskId)
@@ -157,7 +157,7 @@ class premint():
             if (self.proceed):
                 time.sleep(2)
                 self.login()
-                self.scrape()
+                return self.scrape()
         
 
     def register(self): #check if wallet already exist , if not -> register
