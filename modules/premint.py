@@ -1,6 +1,5 @@
-import os,json,time,requests
+import os,json,time,requests,re,string,names,random,tweepy,cloudscraper
 from xmlrpc.client import FastMarshaller
-import random
 from web3 import Web3
 from app_modules.taskLogger import taskLogger
 from app_modules.discordLog import webhookLog
@@ -9,12 +8,8 @@ from app_modules.titleLog import classUpdateTitle
 from app_modules.proxy import proxy_choice
 from modules.twitter import browserTask,fileBrowser,followTwitter,connectTwitter,connectDiscordRequest,disconnectSocial,likeTweet
 from modules.discordModule import inviteTask
-import time,re
 from eth_account.messages import encode_defunct
 from bs4 import BeautifulSoup
-import tweepy
-import re
-import cloudscraper
 from fake_useragent import UserAgent
 ua = UserAgent()
 
@@ -26,7 +21,7 @@ siteKey = "6Lf9yOodAAAAADyXy9cQncsLqD9Gl4NCBx3JCR_x"
 workingProxy = []
 
 class premint():
-    def __init__(self,targetUrl,wallet,walletKey,twitterToken,twitterPassword,discordToken,accessToken,accessTokenSecret,consumerKey,consumerSecret,mode,taskId,transferTask,discordMode="default",reactParam =None):
+    def __init__(self,targetUrl,wallet,walletKey,twitterToken,twitterPassword,discordToken,accessToken,accessTokenSecret,consumerKey,consumerSecret,mode,taskId,transferTask,customField,discordMode="default",reactParam =None):
        self.targetUrl = targetUrl
        self.wallet = wallet.lower()
        self.walletKey = walletKey
@@ -62,6 +57,7 @@ class premint():
        self.reactParam = reactParam
        self.likeReq = "unspecified"
        self.transferTask = transferTask
+       self.customField = customField
 
     def connect(self):
         global web3Connection
@@ -444,6 +440,16 @@ class premint():
                 taskLogger({"status" : "error","message":"Failed solving poll - {}".format(e),"prefix":self.prefix},self.taskId)
                 time.sleep(7)
         return solvedPayload['solution']['gRecaptchaResponse']
+    
+    def generateEmail(self):
+        provider = [self.customField['content']]
+        randomLen = random.randint(2,4)
+        letters = string.ascii_lowercase
+        randomLast= random.choice(letters)
+        randomNumApp = ''.join(str(random.randint(1,9)) for i in range (randomLen))
+        randomEmail = names.get_first_name()+randomLast+randomNumApp+"@{}".format(random.choice(provider))
+        taskLogger({"status" : "success","message":"Generated email : ".format(randomEmail),"prefix":self.prefix},self.taskId)
+        return randomEmail
 
     def submit(self):
         global stagger 
@@ -457,7 +463,15 @@ class premint():
 
         '''if (self.mode == "default"):
             self.submitLoad["params_field"] = ""'''
-        
+
+        if (self.customField!= None):
+            taskLogger({"status" : "process","message":"Setting custom field","prefix":self.prefix},self.taskId)
+
+            if (self.customField['type'] == 'email'):
+                toInput = self.generateEmail()
+
+            self.submitLoad['custom_field'] = toInput
+
         if (self.captchaReq):
             self.requestSolutionMon()
 

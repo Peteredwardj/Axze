@@ -371,6 +371,7 @@ def taskHandler(mode,inputUrl,additionalParam = None):
             reactParam = None
             runPremintChain = False
             forceTransfer = False
+            customField = None
             if (mode=="default"):
                 premintChain = input(lightblue+"Run Premint Chain? [y/n]: "+reset)
                 if (premintChain.lower() == "y"):
@@ -396,7 +397,15 @@ def taskHandler(mode,inputUrl,additionalParam = None):
                         reactParam['messageLink'] = messageInputLink
                         reactParam['emoji'] = emojiId
                         discordMode = "react"
-        
+                runCustomField = input(lightblue+"Run Custom Field module? Input y or hit Enter to skip! :  "+reset)
+                if (runCustomField.lower() == "y"):
+                    customFieldChoiceInput = input(yellow2+"[1] Email custom field"+reset)
+                    if (customFieldChoiceInput == "1"):
+                        catchallInput = input("Input catchall domain (e.x customDomain.com): ")
+                        catchallInput = catchallInput.replace(" ","")
+                        customField = {}
+                        customField['type'] = 'email'
+                        customField['content'] = catchallInput
 
             sheetData = pd.read_excel(PATH,engine='openpyxl',header = 0,names=['profile','discord','twitter','loginMode','password','consumerKey','consumerSecret','accessToken','accessSecret'],na_filter=False)
             #sheetData = sheetData.dropna()
@@ -433,13 +442,13 @@ def taskHandler(mode,inputUrl,additionalParam = None):
                     #print(red+"{} not found in wallets.xlsx, skipping!".format(profile)+reset)
                 else:
                     if (runPremintChain == False):
-                        t = threading.Thread(target=premint(inputUrl,profiles[profile]['wallet'],profiles[profile]['apiKey'],twitter,password,discord,accessToken,accessSecret,consumerKey,consumerSecret,mode,profile,None,discordMode,reactParam).connect)
+                        t = threading.Thread(target=premint(inputUrl,profiles[profile]['wallet'],profiles[profile]['apiKey'],twitter,password,discord,accessToken,accessSecret,consumerKey,consumerSecret,mode,profile,None,customField,discordMode,reactParam).connect)
                         threadsArr.append(t)
                     else:
                         if (profileIterator == 0):
                             clearConsole()
                         transferTask = {'forceTransfer' : forceTransfer,'nextWallet':transferProfileArr[profileIterator],'maxGasFee':maxFeePerGas,'maxPriorityFee':maxPriorityFee,'amount':amount}
-                        premintObj = premint(inputUrl,profiles[profile]['wallet'],profiles[profile]['apiKey'],twitter,password,discord,accessToken,accessSecret,consumerKey,consumerSecret,mode,profile,transferTask,discordMode,reactParam)
+                        premintObj = premint(inputUrl,profiles[profile]['wallet'],profiles[profile]['apiKey'],twitter,password,discord,accessToken,accessSecret,consumerKey,consumerSecret,mode,profile,transferTask,customField,discordMode,reactParam)
                         continueTasks = premintObj.connect()
                         if (continueTasks):
                             profileIterator += 1
