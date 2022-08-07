@@ -152,7 +152,8 @@ class premint():
                 taskObject = {'url':self.targetUrl,'name':"@{}".format(self.twitterToken),'status': "error",'taskType':"Premint Disconnect",'statusMessage':'Failed disconnecting socials','wallet':self.wallet,'discord':self.discordToken,'twitter':self.twitterToken,'proxy':self.proxy,'errorMessage':message,'twitterProj':"none",'discordProj':"none",'image':"https://cdn.discordapp.com/attachments/837783679810928671/999220088903319612/AXZE_PFP_FIX.jpg"}
                 updateTitleCall.addFail()
         else:
-            self.verify()
+            if (self.verify()):
+                return True
             self.register() #Account check
             if (self.proceed):
                 time.sleep(2)
