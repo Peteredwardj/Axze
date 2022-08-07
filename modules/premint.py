@@ -643,7 +643,10 @@ class premint():
         nextWallet = self.transferTask['nextWallet']
         maxGasFee = self.transferTask['maxGasFee']
         maxPriorityFee = self.transferTask['maxPriorityFee']
-        amount = self.transferTask['amount']
+        #amount = self.transferTask['amount']
+        amount = web3Connection.fromWei(web3Connection.eth.get_balance(Web3.toChecksumAddress(self.wallet)) - web3Connection.toWei(maxGasFee,'gwei')*21000,'ether')
+        taskLogger({"status" : "process","message":"Calculated max Eth transfer :{}E".format(amount),"prefix":"({},{}) GWEI".format(maxGasFee,maxPriorityFee)},self.taskId)
+
         body = {
             'nonce' : self.getNonce(),
             'to' : nextWallet,
