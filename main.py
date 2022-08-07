@@ -288,16 +288,18 @@ def taskHandler(mode,inputUrl,additionalParam = None):
                 mintFunc = input(lightblue+ "Input mint function, hit Enter to skip and do autoscrape: "+reset)
                 if (mintFunc == ""):
                     mintFunc = "default"
-                autoGas = input(lightblue+ "Run custom gas? input y or hit Enter to skip and run auto: "+reset)
-                if (autoGas=="y"):
-                    gasConfig = "manual"
-                    maxFeePerGas = float(input(lightblue+ "Enter Max Fee per gas in GWEI : "+reset))
-                    maxPriorityFee = float(input(lightblue+"Enter Max Priority Fee in GWEI : "+reset))
+                
             else:
                 amount = additionalParam['price']
                 quantity = additionalParam ['quantity']
                 mintFunc = additionalParam['func']
                 skipQuick = True
+            
+            autoGas = input(lightblue+ "Run custom gas? input y or hit Enter to skip and run auto: "+reset)
+            if (autoGas=="y"):
+                gasConfig = "manual"
+                maxFeePerGas = float(input(lightblue+ "Enter Max Fee per gas in GWEI : "+reset))
+                maxPriorityFee = float(input(lightblue+"Enter Max Priority Fee in GWEI : "+reset))
 
             if (profileGroupArr == profiles):
                 for i in sheetData.itertuples():
