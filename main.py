@@ -22,6 +22,7 @@ from flask import Flask,jsonify,request
 from waitress import serve
 from flask_restful import Resource,Api
 
+
 global licenseUser,currentSheet,quickMintSheet,quickTaskThreads
 currentObjectSet = []
 quickTaskThreads=[]
@@ -337,14 +338,14 @@ def taskHandler(mode,inputUrl,additionalParam = None):
                     if (profile not in profiles):
                         print(red+"{} not found in wallet.xlsx, skipping!".format(profile)+reset)
                     else:
-                        t = threading.Thread(target=premint(inputUrl,profiles[profile]['wallet'],profiles[profile]['apiKey'],'-','password','discord','accessToken','accessSecret','consumerKey','consumerSecret',mode,profile).connect)
+                        t = threading.Thread(target=premint(inputUrl,profiles[profile]['wallet'],profiles[profile]['apiKey'],'-','password','discord','accessToken','accessSecret','consumerKey','consumerSecret',mode,profile,None,None).connect)
                         threadsArr.append(t)
         else:
             premintTask = True
-            if (mode == "check" or mode == "connect" or mode == "connect-local"):
+            '''if (mode == "check" or mode == "connect" or mode == "connect-local"):
                 pass
             else:
-                mode = "default"
+                mode = "default"'''
 
             PATH = 'files/premintProfiles.xlsx'
             taskCtr = 0
@@ -372,7 +373,7 @@ def taskHandler(mode,inputUrl,additionalParam = None):
             runPremintChain = False
             forceTransfer = False
             customField = None
-            if (mode=="default"):
+            if ("premint" in mode):
                 premintChain = input(lightblue+"Run Premint Chain? [y/n]: "+reset)
                 if (premintChain.lower() == "y"):
                     amount = float(input(yellow2+ "Enter amount of Ethereum required : "+reset))

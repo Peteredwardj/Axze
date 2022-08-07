@@ -444,7 +444,7 @@ def browserTask(user,password,discord,twitterReq,prefix,taskId,session,mode): #L
             loginDial = WebDriverWait(browser, 20,ignored_exceptions=ignored_exceptions).until(EC.element_to_be_clickable((By.TAG_NAME, 'input')))
             loginDial.send_keys(user)
             taskLogger({"status" : "process","message":"Logging user {}".format(user),"prefix":prefix},taskId)
-            browser.find_element_by_xpath('//*[@id="layers"]/div/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[1]/div/div/div[6]/div').click() #next button
+            browser.find_element('xpath','//*[@id="layers"]/div/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[1]/div/div/div[6]/div').click() #next button
             #time.sleep(2)
             if ("Enter your phone number or username" in browser.page_source):
                 taskLogger({"status" : "process","message":"Solving twitter challenge","prefix":prefix},taskId)
@@ -456,7 +456,7 @@ def browserTask(user,password,discord,twitterReq,prefix,taskId,session,mode): #L
             #passButt = browser.find_element_by_name("password")
             passButt.send_keys(password)
             taskLogger({"status" : "process","message":"Authenticating","prefix":prefix},taskId)
-            browser.find_element_by_xpath('//*[@id="layers"]/div/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[2]/div/div[1]').click() #login button
+            browser.find_element('xpath','//*[@id="layers"]/div/div/div/div/div/div/div[2]/div[2]/div/div/div[2]/div[2]/div[2]/div/div[1]').click() #login button
             WebDriverWait(browser,10).until(EC.url_contains("home"))
             if ("home" not in browser.current_url):
                 taskLogger({"status" : "error","message":"Failed to login as : {} , redirected back to {}".format(user,browser.current_url),"prefix":prefix},taskId)
