@@ -387,7 +387,7 @@ def taskHandler(mode,inputUrl,additionalParam = None):
                         else:
                             forceTransfer = False
                         runPremintChain = True
-                runDiscord = input(lightblue+"Run Discord Modules for this premint? Input y or hit Enter to skip! : "+reset)
+                runDiscord = input(lightblue+"Run Discord Modules for this premint? [y/n]: "+reset)
                 if (runDiscord.lower() == "y"):
                     discordChoiceInput = input(yellow2+"[1] Message React [2] Wick [Coming Soon] [3] Captcha Bot [Coming Soon]\nChoose Discord verification method: "+reset)
                     if (discordChoiceInput == "1"):
@@ -397,9 +397,9 @@ def taskHandler(mode,inputUrl,additionalParam = None):
                         reactParam['messageLink'] = messageInputLink
                         reactParam['emoji'] = emojiId
                         discordMode = "react"
-                runCustomField = input(lightblue+"Run Custom Field module? Input y or hit Enter to skip! :  "+reset)
+                runCustomField = input(lightblue+"Run Custom Field module? [y/n]:  "+reset)
                 if (runCustomField.lower() == "y"):
-                    customFieldChoiceInput = input(yellow2+"[1] Email custom field"+reset)
+                    customFieldChoiceInput = input(yellow2+"[1] Email custom field\nChoose custom field type: "+reset)
                     if (customFieldChoiceInput == "1"):
                         catchallInput = input("Input catchall domain (e.x customDomain.com): ")
                         catchallInput = catchallInput.replace(" ","")

@@ -448,7 +448,7 @@ class premint():
         randomLast= random.choice(letters)
         randomNumApp = ''.join(str(random.randint(1,9)) for i in range (randomLen))
         randomEmail = names.get_first_name()+randomLast+randomNumApp+"@{}".format(random.choice(provider))
-        taskLogger({"status" : "success","message":"Generated email : ".format(randomEmail),"prefix":self.prefix},self.taskId)
+        taskLogger({"status" : "success","message":"Generated email : {}".format(randomEmail),"prefix":self.prefix},self.taskId)
         return randomEmail
 
     def submit(self):
@@ -490,7 +490,7 @@ class premint():
                     time.sleep(2.5)
                     if (self.verify()):#check if it is submitted
                         updateTitleCall.addSuccess()
-                        taskObject = {'url':self.targetUrl,'name':self.name,'status': "success",'taskType':"Premint",'statusMessage':'Successfully submitted entry','wallet':self.wallet,'discord':self.discordToken,'twitter':self.twitterToken,'proxy':self.proxy,'errorMessage':None,'twitterProj':self.twitterReq,'discordProj':self.discordReq,'image':self.image}
+                        taskObject = {'url':self.targetUrl,'name':self.name,'status': "success",'taskType':"Premint",'statusMessage':'Successfully submitted entry','wallet':self.wallet,'discord':self.discordToken,'twitter':self.twitterToken,'proxy':self.proxy,'errorMessage':None,'twitterProj':self.twitterReq[0],'discordProj':self.discordReq,'image':self.image}
                         webhookLog(taskObject,self.session)  
                         break
                     else: #extract the error message
