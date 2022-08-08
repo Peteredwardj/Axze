@@ -376,7 +376,7 @@ def taskHandler(mode,inputUrl,additionalParam = None):
             if ("premint" in mode):
                 premintChain = input(lightblue+"Run Premint Chain? [y/n]: "+reset)
                 if (premintChain.lower() == "y"):
-                    amount = float(input(yellow2+ "Enter amount of Ethereum required : "+reset))
+                    amount = 0
                     maxFeePerGas = float(input(yellow2+ "Enter Max Fee per gas in GWEI : "+reset))
                     maxPriorityFee = float(input(yellow2+"Enter Max Priority Fee in GWEI : "+reset))
                     totalEstimatedGas = str(taskCtr*21000*maxFeePerGas*10**-9)[:6]
