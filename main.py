@@ -183,7 +183,7 @@ def taskHandler(mode,inputUrl,additionalParam = None):
         profiles = profileDict
         if (mode=="ethMint"):
             PATH = 'files/tasks.xlsx'
-            sheetData = pd.read_excel(PATH,engine='openpyxl',header = 0,names=['profile','contractAddress','mintFunc','quantity','amount','maxFeePerGas','maxPriorityFee','mode','monitorFunction','params','gasLimit','cancel'],converters={'amount': lambda x: str(x),'params': lambda x: str(x)})
+            sheetData = pd.read_excel(PATH,engine='openpyxl',header = 0,names=['profile','contractAddress','mintFunc','quantity','amount','maxFeePerGas','maxPriorityFee','mode','monitorFunction','params','gasLimit','cancel'],converters={'amount': lambda x: str(x),'params': lambda x: str(x),'cancel':lambda x:str(x)})
             #sheetData = sheetData.dropna()
             currentSheet = sheetData
             for i in sheetData.itertuples():
@@ -215,12 +215,15 @@ def taskHandler(mode,inputUrl,additionalParam = None):
                     gasLimit = None
                     functionToMonitor = None
                     monitorParams = None
-
-
-                if ((i.cancel).lower()=="n"):
+                
+                try:
+                    if ((i.cancel).lower() =='n'):
+                        cancel = False
+                    else:
+                        cancel = True
+                except:
                     cancel = False
-                else:
-                    cancel = True
+                
                 if (maxFeePerGas == 0 or maxPriorityFee==0):
                     gasConfig = "auto"
                 if (profile not in profiles):
