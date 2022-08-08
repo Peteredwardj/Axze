@@ -123,10 +123,13 @@ def taskChecker():
             for i in sheetData.itertuples():
                 maxFeePerGas = i.maxFeePerGas
                 maxPriorityFee = i.maxPriorityFee
-                if ((i.cancel).lower()=="n"):
+                try:
+                    if ((i.cancel).lower()=="n"):
+                        cancel = False
+                    else:
+                        cancel = True
+                except:
                     cancel = False
-                else:
-                    cancel = True
                 if (currentObjectSet[counter]['maxFeePerGas']!=maxFeePerGas or currentObjectSet[counter]['maxPriorityFee']!=maxPriorityFee or currentObjectSet[counter]['cancel']!=cancel):
                     currentObjectSet[counter]['object'].update(maxFeePerGas,maxPriorityFee,cancel)
                 counter+=1
@@ -145,10 +148,13 @@ def quickMintChecker():
             for i in sheetData.itertuples():
                 maxFeePerGas = i.maxFeePerGas
                 maxPriorityFee = i.maxPriorityFee
-                if ((i.cancel).lower()=="n"):
+                try:
+                    if ((i.cancel).lower()=="n"):
+                        cancel = False
+                    else:
+                        cancel = True
+                except:
                     cancel = False
-                else:
-                    cancel = True
 
                 for obj in currentObjectSet:
                     if (obj['maxFeePerGas']!=maxFeePerGas or obj['maxPriorityFee']!=maxPriorityFee or obj['cancel']!=cancel):
