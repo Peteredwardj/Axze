@@ -1,4 +1,5 @@
 import os,json,time,requests,re,string,names,random,tweepy,cloudscraper
+from socket import timeout
 from xmlrpc.client import FastMarshaller
 from web3 import Web3
 from app_modules.taskLogger import taskLogger
@@ -662,7 +663,7 @@ class premint():
             signedTransaction = web3Connection.eth.account.sign_transaction(body,self.walletKey)
             taskLogger({"status" : "process","message":"Submitting Transaction [{} ETH -> {}]".format(amount,nextWallet),"prefix":"({},{}) GWEI".format(maxGasFee,maxPriorityFee)},self.taskId)
             result = web3Connection.eth.send_raw_transaction(signedTransaction.rawTransaction)
-            statusTrack = web3Connection.eth.wait_for_transaction_receipt(result)
+            statusTrack = web3Connection.eth.wait_for_transaction_receipt(result,timeout=300)
             if (statusTrack['status']==1): #successful transfer 
                 taskLogger({"status" : "success","message":"Succesful Transaction [{} ETH -> {}]".format(amount,nextWallet),"prefix":"({},{}) GWEI".format(maxGasFee,maxPriorityFee)},self.taskId)
                 return True
