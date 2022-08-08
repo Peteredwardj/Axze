@@ -98,7 +98,7 @@ def osResize():
     if platform == "darwin":
         os.system('$eclipse >/dev/null resize -s 40 130')
     elif platform == "win32":
-        os.system('mode con: cols=130 lines=40')
+        os.system('mode con: cols=130 lines=4000')
 
 def clearConsole():
     if platform == "darwin":
@@ -376,8 +376,7 @@ def taskHandler(mode,inputUrl,additionalParam = None):
             if ("premint" in mode):
                 premintChain = input(lightblue+"Run Premint Chain? [y/n]: "+reset)
                 if (premintChain.lower() == "y"):
-                    #amount = float(input(yellow2+ "Enter amount of Ethereum required : "+reset))
-                    amount = float(0)
+                    amount = float(input(yellow2+ "Enter amount of Ethereum required : "+reset))
                     maxFeePerGas = float(input(yellow2+ "Enter Max Fee per gas in GWEI : "+reset))
                     maxPriorityFee = float(input(yellow2+"Enter Max Priority Fee in GWEI : "+reset))
                     totalEstimatedGas = str(taskCtr*21000*maxFeePerGas*10**-9)[:6]
