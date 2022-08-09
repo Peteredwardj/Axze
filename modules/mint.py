@@ -65,9 +65,12 @@ class mint():
             decodedFunc,decodedParams= self.contract.decode_function_input(inputData)
             decodedFunc = str(decodedFunc).split()[1].split('(')[0]
             if(decodedFunc == self.functionToMonitor):
-                for param in self.paramToMonitor:
-                    if (decodedParams[param] == self.paramToMonitor[param] or str(decodedParams[param]).lower() == str(self.paramToMonitor[param]).lower()):
-                        match = True
+                if (self.paramToMonitor != "none"):
+                    for param in self.paramToMonitor:
+                        if (decodedParams[param] == self.paramToMonitor[param] or str(decodedParams[param]).lower() == str(self.paramToMonitor[param]).lower()):
+                            match = True
+                else:
+                    match = True
     
         except Exception as e:
             taskLogger({"status" : "error","message":"Flipstate error - {}".format(e),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)

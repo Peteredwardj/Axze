@@ -210,7 +210,10 @@ def taskHandler(mode,inputUrl,additionalParam = None):
                     functionToMonitor = i.monitorFunction
                     monitorParams = i.params
                     gasLimit = i.gasLimit
-                    if ("=" not in monitorParams):
+
+                    if (monitorParams == "none" or monitorParams == "None"):
+                        paramToMonitor = "none"
+                    elif ("=" not in monitorParams):
                         paramToMonitor = monitorParams
                     else:
                         paramToMonitor = {}
