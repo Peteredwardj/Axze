@@ -15,6 +15,7 @@ from app_modules.version import version
 from app_modules.taskLogger import lightblue,green,red,yellow,reset,expColor,yellow2
 from app_modules.apiModules import checkNode,checkCapMonster
 from app_modules.profileUtils  import profileManager
+from app_modules.splashScreen import loadSplash
 from pypresence import Presence
 from datetime import date
 from eth_account import Account
@@ -735,6 +736,11 @@ def menuInitializer():
     else:
         serverStr = "OCQM Active"
         colorStr = green
+
+
+    print(loadSplash(licenseUser))
+    continueVar = input("")
+    clearConsole()
 
     print(expColor+'''
  ___  _ _  ____ _____ 
