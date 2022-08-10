@@ -1,5 +1,6 @@
 from __future__ import print_function, unicode_literals
 from cmath import nan
+from turtle import clear
 from PyInquirer import prompt, Separator,Token,style_from_dict
 from colored import fg, attr
 import datetime,os,threading,json,time,re,uuid,requests
@@ -16,12 +17,14 @@ from app_modules.taskLogger import lightblue,green,red,yellow,reset,expColor,yel
 from app_modules.apiModules import checkNode,checkCapMonster
 from app_modules.profileUtils  import profileManager
 from app_modules.splashScreen import loadSplash
+from app_modules.clearCache import clearCache
 from pypresence import Presence
 from datetime import date
 from eth_account import Account
 from flask import Flask,jsonify,request
 from waitress import serve
 from flask_restful import Resource,Api
+import shutil,tempfile
 
 
 global licenseUser,currentSheet,quickMintSheet,quickTaskThreads
@@ -115,51 +118,78 @@ def questionPrompt(questions):
 def taskChecker():
     global currentSheet,currentObjectSet
     PATH = 'files/tasks.xlsx'
+    assert os.path.isfile(PATH)
+    
     while True:
-        sheetData = pd.read_excel(PATH,engine='openpyxl',header = 0,names=['profile','contractAddress','mintFunc','quantity','amount','maxFeePerGas','maxPriorityFee','absoluteMax','autoAdjust','mode','cancel'],converters={'amount': lambda x: str(x)})
-        sheetData = sheetData.dropna()
-        if (not sheetData.equals(currentSheet)):
-            currentSheet = sheetData
-            counter = 0
-            for i in sheetData.itertuples():
-                maxFeePerGas = i.maxFeePerGas
-                maxPriorityFee = i.maxPriorityFee
-                try:
-                    if ((i.cancel).lower()=="n"):
+        try:    
+            tmp = tempfile.NamedTemporaryFile(delete=False , dir='cache')
+            try:
+                shutil.copyfile(os.path.abspath(PATH), tmp.name)
+            except:
+                print(yellow+"Live control error - check that none of the fields are empty and try again!"+reset)
+                continue
+            tempPath = tmp.name
+            sheetData = pd.read_excel(tempPath,engine='openpyxl',header = 0,names=['profile','contractAddress','mintFunc','quantity','amount','maxFeePerGas','maxPriorityFee','mode','monitorFunction','params','gasLimit','cancel'],converters={'amount': lambda x: str(x),'params': lambda x: str(x),'cancel':lambda x:str(x)})
+            sheetData = sheetData.dropna()
+            if (not sheetData.equals(currentSheet)):
+                currentSheet = sheetData
+                counter = 0
+                for i in sheetData.itertuples():
+                    maxFeePerGas = i.maxFeePerGas
+                    maxPriorityFee = i.maxPriorityFee
+                    try:
+                        if ((i.cancel).lower()=="n"):
+                            cancel = False
+                        else:
+                            cancel = True
+                    except:
                         cancel = False
-                    else:
-                        cancel = True
-                except:
-                    cancel = False
-                if (currentObjectSet[counter]['maxFeePerGas']!=maxFeePerGas or currentObjectSet[counter]['maxPriorityFee']!=maxPriorityFee or currentObjectSet[counter]['cancel']!=cancel):
-                    currentObjectSet[counter]['object'].update(maxFeePerGas,maxPriorityFee,cancel)
-                counter+=1
-
-
-
+                    if (currentObjectSet[counter]['maxFeePerGas']!=maxFeePerGas or currentObjectSet[counter]['maxPriorityFee']!=maxPriorityFee or currentObjectSet[counter]['cancel']!=cancel):
+                        currentObjectSet[counter]['object'].update(maxFeePerGas,maxPriorityFee,cancel)
+                    counter+=1
+            tmp.close()
+            os.unlink(tmp.name)
+        except PermissionError:
+            print(yellow+"Live control error - Permission Error"+reset)
+        
 
 def quickMintChecker():
     global quickMintSheet,currentObjectSet
-    PATH = 'files/quickMintControl.xlsx'
+    PATH = 'files/quickMintControl.xlsx' 
+    assert os.path.isfile(PATH)
     while True:
-        sheetData = pd.read_excel(PATH,engine='openpyxl',header = 0,names=['maxFeePerGas','maxPriorityFee','cancel'])
-        sheetData = sheetData.dropna()
-        if (not sheetData.equals(quickMintSheet)):
-            quickMintSheet = sheetData
-            for i in sheetData.itertuples():
-                maxFeePerGas = i.maxFeePerGas
-                maxPriorityFee = i.maxPriorityFee
-                try:
-                    if ((i.cancel).lower()=="n"):
+        try:    
+            tmp = tempfile.NamedTemporaryFile(delete=False,  dir='cache')
+            try:
+                shutil.copyfile(os.path.abspath(PATH), tmp.name)
+            except:
+                print(yellow+"Live Control Error -check that none of the fields are empty and try again!"+reset)
+                continue
+            tempPath = tmp.name
+            sheetData = pd.read_excel(tempPath,engine='openpyxl',header = 0,names=['maxFeePerGas','maxPriorityFee','cancel'])
+            sheetData = sheetData.dropna()
+            if (not sheetData.equals(quickMintSheet)):
+                quickMintSheet = sheetData
+                counter = 0
+                for i in sheetData.itertuples():
+                    maxFeePerGas = i.maxFeePerGas
+                    maxPriorityFee = i.maxPriorityFee
+                    try:
+                        if ((i.cancel).lower()=="n"):
+                            cancel = False
+                        else:
+                            cancel = True
+                    except:
                         cancel = False
-                    else:
-                        cancel = True
-                except:
-                    cancel = False
-
-                for obj in currentObjectSet:
-                    if (obj['maxFeePerGas']!=maxFeePerGas or obj['maxPriorityFee']!=maxPriorityFee or obj['cancel']!=cancel):
-                        obj['object'].update(maxFeePerGas,maxPriorityFee,cancel)
+                    if (currentObjectSet[counter]['maxFeePerGas']!=maxFeePerGas or currentObjectSet[counter]['maxPriorityFee']!=maxPriorityFee or currentObjectSet[counter]['cancel']!=cancel):
+                        currentObjectSet[counter]['object'].update(maxFeePerGas,maxPriorityFee,cancel)
+                    counter+=1
+                
+            tmp.close()
+            os.unlink(tmp.name)
+        except PermissionError:
+            print(yellow+"Live control error - Permission Error"+reset)
+            
 
 def profileHandler():
     global profileDict
@@ -282,14 +312,14 @@ def taskHandler(mode,inputUrl,additionalParam = None):
 
                 runChoice = input(lightblue+"Input profile group to run Quick Mint for: "+reset)
                 if (profileGroupDict[runChoice] == "quickProfiles"):
-                    print("running all quick profiles")
+                    if (len(sheetData) ==0):
+                        print(red+"No Quick Profiles made!"+reset)
+                        return
+                    print(lightblue + "Running all quick profiles" +reset)
                     profileGroupArr = profiles
                 else:
                     profileGroupArr = profileGroups[profileGroupDict[runChoice]]
-
-            if (len(sheetData) ==0):
-                print(red+"No Quick Profiles made!"+reset)
-                return
+                    
             if (inputUrl=="none"):
                 contractAddress = input(lightblue+"Enter contract to run: "+reset)
             else:
@@ -754,6 +784,7 @@ def menuInitializer():
 
 
 def main():
+    clearCache()
     if (not login()):
         time.sleep(100000)
     discordPresence()
@@ -782,19 +813,17 @@ def main():
             clearConsole()
             print(lightblue+"Exath Smart Quick Mint Read"+reset)'''
 
+        if (quickMintTask == True):
+            threadsArr.append(threading.Thread(target = quickMintChecker))
+        
+        if (premintTask == False and quickMintTask ==False and serverQuickMint==False):
+            threadsArr.append(threading.Thread(target = taskChecker))
+
         for t in threadsArr:
             t.start()
 
         for t in threadsArr:
-            t.join()
-
-        if (quickMintTask == True):
-            quickMintChecker() #listen to changes
-
-        if (premintTask == False and quickMintTask ==False and serverQuickMint==False):
-            taskChecker()
-
-      
+            t.join()      
 
         time.sleep(1000000)
     else:

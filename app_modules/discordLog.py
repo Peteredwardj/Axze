@@ -30,10 +30,10 @@ def testLog():
 
 
 def webhookLog(taskObject,session = None):
+    global publicHook,raffleHook
     
     checkoutHook = checkURL()
     if (session != None): #use session from current task
-        publicHook = Webhook('https://discord.com/api/webhooks/923464543789809684/1QS8QQkoFZZYI5ZzDf3nNSVEhB98rJChvjnRBzDd1Qx9GPbNnEQ8nNNifr1pgF7IhXgo',session = session)
         raffleHook = Webhook('https://discord.com/api/webhooks/1001757845102022666/pQc5lK38JLOPwQxNMBwzpcr1AP7ds2JkGDLxu8HezshMTYbsnR3q3tdyFaXigbjM2ZuS',session = session)
         checkoutHook = Webhook(url,session = session)
 
@@ -84,7 +84,7 @@ def webhookLog(taskObject,session = None):
             embed.add_field(name="Value",value=f"{taskObject['value']} Ether",inline=True)
             embed.add_field(name="Mode",value=taskObject['mode'],inline=True)
             embed.add_field(name = "Max Fee Config", value = "||{} GWEI||".format(taskObject['maxFee']),inline=True)
-            embed.add_field(name="Wallet",value="||{}||".format(taskObject['wallet']),inline=True)
+            embed.add_field(name="Wallet",value="{}".format(taskObject['wallet']),inline=True)
         else:
             embed=Embed(title=statusTitle,description=f"**Mint of {taskObject['mintName']}**",url=taskObject['osLink'],color=statusColor)
             embed.add_field(name="Contract",value="[{}](https://etherscan.io/address/{})".format(taskObject['receiver'],taskObject['receiver']),inline=True)
@@ -115,7 +115,7 @@ def webhookLog(taskObject,session = None):
             try:
                 publicHook.send(embed=embed)
                 break
-            except:
+            except Exception as e:
                 time.sleep(4) 
 
     if ("Premint" in taskObject['taskType'] and taskObject['status']=="success" and "Connect" not in taskObject['taskType'] ):
