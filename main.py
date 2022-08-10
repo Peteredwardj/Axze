@@ -163,7 +163,7 @@ def quickMintChecker():
             try:
                 shutil.copyfile(os.path.abspath(PATH), tmp.name)
             except:
-                print(yellow+"Live Control Error -check that none of the fields are empty and try again!"+reset)
+                print(yellow+"Live Control Error - check that none of the fields are empty and try again!"+reset)
                 continue
             tempPath = tmp.name
             sheetData = pd.read_excel(tempPath,engine='openpyxl',header = 0,names=['maxFeePerGas','maxPriorityFee','cancel'])

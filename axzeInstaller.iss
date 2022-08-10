@@ -2,7 +2,7 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "Axze"  ;valid version
-#define MyAppVersion "1.1.0 prod"
+#define MyAppVersion "1.1.1"
 #define MyAppPublisher "Exath"
 #define MyAppURL "https://www.exath.io"
 #define MyAppExeName "Axze.exe"
@@ -48,6 +48,8 @@ Source: "C:\Users\Peter Jonathan\Documents\Axze\app_data\*"; DestDir: "{app}\app
 [Dirs]
 Name: "{app}\files" ; Permissions: everyone-full
 Name: "{app}\chrome" ; Permissions: everyone-full
+Name: "{app}\cache" ; Permissions: everyone-full
+
 
 
 [Registry]
