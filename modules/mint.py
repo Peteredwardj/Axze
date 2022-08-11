@@ -178,7 +178,7 @@ class mint():
         while True:
             try:
                 taskLogger({"status" : "process","message":"Fetching contract properties","prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
-                response = requests.get("https://api.etherscan.io/api?module=contract&action=getabi&address={}&apikey={}".format(self.contractAddress,etherScanApi))
+                response = requests.get("https://api.etherscan.io/api?module=contract&action=getabi&address={}&apikey={}".format(self.contractAddress,etherScanApi),timeout=5)
                 if (response.status_code == 200):
                     return (json.loads(response.text)['result'])
                 else:
@@ -376,15 +376,14 @@ class mint():
                     self.proof = "0x"
                 elif (self.special == False and i['type'] == "bytes32[]"):
                     taskLogger({"status" : "process","message":"Generating bytes32 proof","prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
-                    self.proof = "[]"
+                    self.proof = []
                 else:
                     taskLogger({"status" : "process","message":"Using prior generated proof","prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
                 argsOrder.append(self.proof)
-            elif (i['type'] == "uint256"):
+            elif (i['type'] == "uint256" or i['type'] == "uint16"):
                 argsOrder.append(int(self.quantity))
             elif (i['type'] == "address"):
                 argsOrder.append(self.walletAddress)
-
         if (self.mode not in forceTxnModes):
             if (len(self.inputStuct) == 0): #no arguments
                 mintFunction = self.contract.functions[self.mintFunctionCall]().buildTransaction(body)
@@ -532,17 +531,8 @@ class mint():
                     webhookLog(taskObject)
                     break
                 elif ('max fee per gas less than block base fee' in str(e)):
-                    if (self.autoAdjust):
-                        gasEst = self.getGas()
-                        if (gasEst+10 > self.absoluteMax):
-                            taskLogger({"status" : "error","message":"Current Gas too high, exceeds absolute Max - Stopping Task","prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
-                            break
-                        else:
-                            self.maxGasFee = gasEst+10
-                            taskLogger({"status" : "error","message":"Max Fee too low, increasing to - {}".format(self.maxGasFee),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
-                    else:
-                        taskLogger({"status" : "error","message":"Current Gas higher than set gas, auto adjust not enabled - Stopping Task","prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
-                        break
+                    taskLogger({"status" : "error","message":"Current set gas is too low for the current network condition","prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
+                    time.sleep(0.5)
                 else:     
                     e = str(e)
                     try:

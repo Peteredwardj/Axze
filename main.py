@@ -255,6 +255,7 @@ def taskHandler(mode,inputUrl,additionalParam = None):
                     gasLimit = None
                     functionToMonitor = None
                     monitorParams = None
+                    paramToMonitor = None
                 
                 try:
                     if ((i.cancel).lower() =='n'):
