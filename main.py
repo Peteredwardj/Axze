@@ -1,6 +1,5 @@
 from __future__ import print_function, unicode_literals
 from cmath import nan
-from turtle import clear
 from PyInquirer import prompt, Separator,Token,style_from_dict
 from colored import fg, attr
 import datetime,os,threading,json,time,re,uuid,requests
@@ -11,6 +10,7 @@ from sys import platform
 from modules.mint import mint
 from modules.invite import inviteTask
 from modules.premint import premint
+from modules.superful import superful
 from app_modules.discordLog import testLog
 from app_modules.version import version
 from app_modules.taskLogger import lightblue,green,red,yellow,reset,expColor,yellow2
@@ -25,7 +25,6 @@ from flask import Flask,jsonify,request
 from waitress import serve
 from flask_restful import Resource,Api
 import shutil,tempfile
-
 
 global licenseUser,currentSheet,quickMintSheet,quickTaskThreads
 currentObjectSet = []
@@ -59,6 +58,7 @@ mainMenu = [
             #'Start Smart Quick Mint [ETH]',
             'Start Wallet Generator [ETH]',
             'Start Premint Modules',
+            'Start Superful Modules',
             'Profile Management',
             'Settings'
         ]
@@ -374,7 +374,12 @@ def taskHandler(mode,inputUrl,additionalParam = None):
 
         elif (mode == "disconnect"):
             premintTask = True
-            PATH = 'files/premintDisconnect.xlsx'
+
+            if ("premint" in inputUrl):
+                PATH = 'files/premintDisconnect.xlsx'
+            else:
+                PATH = 'files/superfulDisconnect.xlsx'
+
             sheetData = pd.read_excel(PATH,engine='openpyxl',header = 0,names=['profile'])
             sheetData = sheetData.dropna()
             for i in sheetData.itertuples():
@@ -382,16 +387,28 @@ def taskHandler(mode,inputUrl,additionalParam = None):
                     if (profile not in profiles):
                         print(red+"{} not found in wallet.xlsx, skipping!".format(profile)+reset)
                     else:
-                        t = threading.Thread(target=premint(inputUrl,profiles[profile]['wallet'],profiles[profile]['apiKey'],'-','password','discord','accessToken','accessSecret','consumerKey','consumerSecret',mode,profile,None,None).connect)
+                        if ("premint" in inputUrl):
+                            t = threading.Thread(target=premint(inputUrl,profiles[profile]['wallet'],profiles[profile]['apiKey'],'-','password','discord','accessToken','accessSecret','consumerKey','consumerSecret',mode,profile,None,None).connect)
+                        else:
+                            t = threading.Thread(target=superful(inputUrl,profiles[profile]['wallet'],profiles[profile]['apiKey'],'-','password','discord','accessToken','accessSecret','consumerKey','consumerSecret',mode,profile,None,None).connect)
                         threadsArr.append(t)
         else:
+
             premintTask = True
+
             '''if (mode == "check" or mode == "connect" or mode == "connect-local"):
                 pass
             else:
                 mode = "default"'''
 
-            PATH = 'files/premintProfiles.xlsx'
+            
+            if ("premint" in inputUrl):
+                PATH = 'files/premintProfiles.xlsx'
+                taskString = "Premint"
+            else:
+                PATH = 'files/superfulProfiles.xlsx'
+                taskString = "Superful"
+
             taskCtr = 0
             sourceWallet = ""
             transferProfileArr = []
@@ -411,28 +428,30 @@ def taskHandler(mode,inputUrl,additionalParam = None):
                     else:
                         transferProfileArr.append(wallet)
                     taskCtr += 1
+
             transferProfileArr.append(sourceWallet)
             discordMode = 'default'
             reactParam = None
             runPremintChain = False
             forceTransfer = False
             customField = None
-            if ("premint" in mode):
-                premintChain = input(lightblue+"Run Premint Chain? [y/n]: "+reset)
+
+            if ("premint" in mode or "superful" in mode):
+                premintChain = input(lightblue+"Run {} Chain? [y/n]: ".format(taskString)+reset)
                 if (premintChain.lower() == "y"):
                     amount = 0
                     maxFeePerGas = float(input(yellow2+ "Enter Max Fee per gas in GWEI : "+reset))
                     maxPriorityFee = float(input(yellow2+"Enter Max Priority Fee in GWEI : "+reset))
                     totalEstimatedGas = str(taskCtr*21000*maxFeePerGas*10**-9)[:6]
-                    agreeGas = input(yellow2+"Estimated max total gas spent for {} tasks is {}E\nContinue Premint Chain?[y/n]: ".format(taskCtr,totalEstimatedGas)+reset)
+                    agreeGas = input(yellow2+"Estimated max total gas spent for {} tasks is {}E\nContinue {} Chain?[y/n]: ".format(taskCtr,totalEstimatedGas,taskString)+reset)
                     if (agreeGas.lower() == "y"):
-                        forceTransferChoice= input(yellow2+"Force transfer to next wallet on submit failure?[y/n]: "+reset)
+                        forceTransferChoice= input(yellow2+"Force transfer to next wallet on entry process failure?[y/n]: "+reset)
                         if (forceTransferChoice.lower() == "y"):
                             forceTransfer = True
                         else:
                             forceTransfer = False
                         runPremintChain = True
-                runDiscord = input(lightblue+"Run Discord Modules for this premint? [y/n]: "+reset)
+                runDiscord = input(lightblue+"Run Discord Modules for this {}? [y/n]: ".format(taskString)+reset)
                 if (runDiscord.lower() == "y"):
                     discordChoiceInput = input(yellow2+"[1] Message React [2] Wick [Coming Soon] [3] Captcha Bot [Coming Soon]\nChoose Discord verification method: "+reset)
                     if (discordChoiceInput == "1"):
@@ -442,15 +461,16 @@ def taskHandler(mode,inputUrl,additionalParam = None):
                         reactParam['messageLink'] = messageInputLink
                         reactParam['emoji'] = emojiId
                         discordMode = "react"
-                runCustomField = input(lightblue+"Run Custom Field module? [y/n]:  "+reset)
-                if (runCustomField.lower() == "y"):
-                    customFieldChoiceInput = input(yellow2+"[1] Email custom field\nChoose custom field type: "+reset)
-                    if (customFieldChoiceInput == "1"):
-                        catchallInput = input("Input catchall domain (e.x customDomain.com): ")
-                        catchallInput = catchallInput.replace(" ","")
-                        customField = {}
-                        customField['type'] = 'email'
-                        customField['content'] = catchallInput
+                if ("premint" in mode):
+                    runCustomField = input(lightblue+"Run Custom Field module? [y/n]:  "+reset)
+                    if (runCustomField.lower() == "y"):
+                        customFieldChoiceInput = input(yellow2+"[1] Email custom field\nChoose custom field type: "+reset)
+                        if (customFieldChoiceInput == "1"):
+                            catchallInput = input("Input catchall domain (e.x customDomain.com): ")
+                            catchallInput = catchallInput.replace(" ","")
+                            customField = {}
+                            customField['type'] = 'email'
+                            customField['content'] = catchallInput
 
             sheetData = pd.read_excel(PATH,engine='openpyxl',header = 0,names=['profile','discord','twitter','loginMode','password','consumerKey','consumerSecret','accessToken','accessSecret'],na_filter=False)
             #sheetData = sheetData.dropna()
@@ -487,18 +507,25 @@ def taskHandler(mode,inputUrl,additionalParam = None):
                     #print(red+"{} not found in wallets.xlsx, skipping!".format(profile)+reset)
                 else:
                     if (runPremintChain == False):
-                        t = threading.Thread(target=premint(inputUrl,profiles[profile]['wallet'],profiles[profile]['apiKey'],twitter,password,discord,accessToken,accessSecret,consumerKey,consumerSecret,mode,profile,None,customField,discordMode,reactParam).connect)
+                        if ("premint" in mode):
+                            t = threading.Thread(target=premint(inputUrl,profiles[profile]['wallet'],profiles[profile]['apiKey'],twitter,password,discord,accessToken,accessSecret,consumerKey,consumerSecret,mode,profile,None,customField,discordMode,reactParam).connect)
+                        else:
+                            t = threading.Thread(target=superful(inputUrl,profiles[profile]['wallet'],profiles[profile]['apiKey'],twitter,password,discord,accessToken,accessSecret,consumerKey,consumerSecret,mode,profile,None,customField,discordMode,reactParam).connect)
                         threadsArr.append(t)
                     else:
                         if (profileIterator == 0):
                             clearConsole()
                         transferTask = {'forceTransfer' : forceTransfer,'nextWallet':transferProfileArr[profileIterator],'maxGasFee':maxFeePerGas,'maxPriorityFee':maxPriorityFee,'amount':amount}
-                        premintObj = premint(inputUrl,profiles[profile]['wallet'],profiles[profile]['apiKey'],twitter,password,discord,accessToken,accessSecret,consumerKey,consumerSecret,mode,profile,transferTask,customField,discordMode,reactParam)
+                        if ("premint" in mode):
+                            premintObj = premint(inputUrl,profiles[profile]['wallet'],profiles[profile]['apiKey'],twitter,password,discord,accessToken,accessSecret,consumerKey,consumerSecret,mode,profile,transferTask,customField,discordMode,reactParam)
+                        else:
+                            premintObj = superful(inputUrl,profiles[profile]['wallet'],profiles[profile]['apiKey'],twitter,password,discord,accessToken,accessSecret,consumerKey,consumerSecret,mode,profile,transferTask,customField,discordMode,reactParam)
+
                         continueTasks = premintObj.connect()
                         if (continueTasks):
                             profileIterator += 1
                         else:
-                            print(red+"\nPremint chain stopped"+reset)
+                            print(red+"\{} chain stopped".format(taskString)+reset)
                             time.sleep(1000000)
                         
 
@@ -598,6 +625,21 @@ def optionHandler(answer):
             ]
             }]
             questionPrompt(question)
+        
+        elif (option == "Start Superful Modules"):
+            question = [{
+                'type' : 'list',
+                'name' : 'Superful Menu',
+                'message' : 'Choose module to run',
+                'choices' : [
+                    'Superful Entry',
+                    'Superful Connect',
+                    'Superful Disconnect',
+                    'Winner Check',
+            ]
+            }]
+            questionPrompt(question)
+
         elif (option == "Profile Management"):
             profileOption = input(lightblue+"[1] Create/Edit profile groups [2] View profile groups: "+reset)
             if profileOption == "1":
@@ -671,6 +713,31 @@ def optionHandler(answer):
             else:
                 print(lightblue+ "Checking entries result for : {}".format(inputUrl)+reset)
                 taskHandler("check",inputUrl)
+
+    elif ("Superful Menu" in answer):
+        if (answer["Superful Menu"] == "Superful Connect"):
+            modeChoice= input(lightblue+"Run One time Twitter accounts setup with Proxies?[y/n]: "+reset)
+            if (modeChoice.lower() == "y"):
+                mode = "connect"
+            else:
+                mode = "connect-local"
+
+            taskHandler(mode,"https://www.superful.xyz/")
+        elif (answer["Superful Menu"] == "Superful Disconnect"):
+            taskHandler("disconnect","https://www.superful.xyz/")
+        else:
+            inputUrl = input(lightblue+ "Input Superful link : "+reset)
+            if (answer["Superful Menu"] == "Superful Entry"):
+                modeChoice= input(lightblue+"Run One time Twitter accounts setup with Proxies?[y/n]: "+reset)
+                if (modeChoice.lower() == "y"):
+                    mode = "superful"
+                else:
+                    mode = "superful-local"
+                taskHandler(mode,inputUrl)
+            else:
+                print(lightblue+ "Checking entries result for : {}".format(inputUrl)+reset)
+                taskHandler("check",inputUrl)
+
             
     elif ("Discord Webhook Setting" in answer):
         dataObject = {'type' : "webhook", 'content': answer["Discord Webhook Setting"]}

@@ -41,10 +41,12 @@ def webhookLog(taskObject,session = None):
         statusColor="3066993"
         statusTitle="Axze Successful Task"
         premintTitle = "**Successful Premint Task**"
+        superfulTitle = "**Successful Superful Task**"
     else:
         statusColor="15158332"
         statusTitle="Axze Failed Task"
         premintTitle = "**Failed Premint Task**"
+        superfulTitle = "**Failed Superful Task**"
     
     if ("Discord" in taskObject['taskType']):
         embed=Embed(title=statusTitle,description=f"**{taskObject['taskType']}**",color=statusColor)
@@ -65,14 +67,19 @@ def webhookLog(taskObject,session = None):
             embed.add_field(name = "Max Fee Config", value = "||{} GWEI||".format(taskObject['maxFee']),inline=True)
             embed.add_field(name="Wallet",value="||{}||".format(taskObject['wallet']),inline=True)
 
-    elif ("Premint" in taskObject['taskType']):
-        embed = Embed(title = premintTitle,color = statusColor,description="**{}**".format(taskObject['statusMessage']),url=taskObject['url'])
+    elif ("Premint" in taskObject['taskType'] or "Superful" in taskObject['taskType']):
+        if ("Premint" in taskObject['taskType']):
+            embed = Embed(title = premintTitle,color = statusColor,description="**{}**".format(taskObject['statusMessage']),url=taskObject['url'])
+        else:
+            embed = Embed(title = superfulTitle,color = statusColor,description="**{}**".format(taskObject['statusMessage']),url=taskObject['url'])
+
         embed.set_thumbnail(taskObject['image'])
         embed.add_field(name="Name",value=taskObject['name'])
         embed.add_field(name="Wallet",value="||{}||".format(taskObject['wallet']))
         embed.add_field(name="Discord",value="||{}||".format(taskObject['discord']))
         embed.add_field(name="Twitter",value="||{}||".format(taskObject['twitter']))
         embed.add_field(name="Proxy",value="||{}||".format(taskObject['proxy']))
+        embed.add_field(name="Mode",value=taskObject['taskType'])
         if (taskObject['status']!="success"):
             embed.add_field(name="Error message",value = taskObject['errorMessage'],inline=False)
         embed.add_field(name="Quick Links",value="[**Twitter**]({}) - [**Discord**]({})".format(taskObject['twitterProj'],taskObject['discordProj']),inline=False)
@@ -106,7 +113,7 @@ def webhookLog(taskObject,session = None):
         except Exception as e:
             time.sleep(4)
 
-    if (taskObject['status'] == "success" and "Discord" not in taskObject['taskType'] and "Premint" not in taskObject['taskType']):
+    if (taskObject['status'] == "success" and "Discord" not in taskObject['taskType'] and "Premint" not in taskObject['taskType'] and "Superful" not in taskObject['taskType']):
         for _ in range(3):
             embed.del_field(4)
         embed.add_field(name = "Presets", value = "{} GWEI".format(taskObject['maxFee']),inline=True)
@@ -118,13 +125,13 @@ def webhookLog(taskObject,session = None):
             except Exception as e:
                 time.sleep(4) 
 
-    if ("Premint" in taskObject['taskType'] and taskObject['status']=="success" and "Connect" not in taskObject['taskType'] ):
+    if (("Premint" in taskObject['taskType'] or "Superful" in taskObject['taskType']) and taskObject['status']=="success" and "connect" not in taskObject['taskType'].lower()):
         for _ in range(4):
             embed.del_field(1)
         while True:
             try:
                 raffleHook.send(embed=embed)
-                if (taskObject['taskType'] == "PremintWin"):
+                if (taskObject['taskType'] == "PremintWin" or taskObject['taskType'] == "SuperfulWin"):
                     publicHook.send(embed = embed)
                 break
             except:

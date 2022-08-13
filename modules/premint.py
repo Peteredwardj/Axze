@@ -92,7 +92,6 @@ class premint():
             try:
                 response = self.session.get("http://www.premint.xyz/")
                 if (response.status_code == 200):
-                    taskLogger({"status" : "process","message":"Initialized session","prefix":self.prefix},self.taskId)
                     matchedToken=re.findall("CSRF_TOKEN = (.*)",response.text)
                     matchedToken = matchedToken[0]
                     matchedToken = matchedToken.replace("\'","")
@@ -100,6 +99,7 @@ class premint():
                     #self.csrfToken = response.cookies['csrftoken']
                     self.csrfToken = matchedToken
                     self.session.headers['X-CSRFToken'] = self.csrfToken
+                    taskLogger({"status" : "process","message":"Initialized session","prefix":self.prefix},self.taskId)
                     break
                 else:
                     taskLogger({"status" : "error","message":"Failed initializing session - {}".format(response.status_code),"prefix":self.prefix},self.taskId)
@@ -298,40 +298,54 @@ class premint():
     def scrape(self): #scrape premint info 
         global stagger
         responseData = None
+        retryCount = 0
+        retryThreshold = 2
         while True:
+            if (retryCount > retryThreshold):
+                taskLogger({"status" : "error","message":"Exceeded max of {} retries, killing task!".format(retryThreshold),"prefix":self.prefix},self.taskId)
+                break
             try:
+                taskLogger({"status" : "success","message":"Fetching page","prefix":self.prefix},self.taskId)
                 response = self.session.get(self.targetUrl)
                 if (response.status_code == 200):
                     responseData = response.text
                     taskLogger({"status" : "success","message":"Fetched page","prefix":self.prefix},self.taskId)
-                    break
+                    try:
+                        soup = BeautifulSoup(responseData, "html.parser")
+                        tokRes = soup.find("input",{"name":"csrfmiddlewaretoken"})
+                        self.csrfToken = tokRes['value']
+                        break
+                    except Exception as e:
+                        retryCount +=1
+                        errMsg = str(e)
+                        if ("Cannot register until you connect accounts above" in responseData):
+                            errMsg = "Disconnected Socials"
+                        taskLogger({"status" : "error","message":"Failed fetching token - {}".format(errMsg),"prefix":self.prefix},self.taskId)
+                        taskObject = {'url':self.targetUrl,'name':self.name,'status': "error",'taskType':"Premint",'statusMessage':'Failed fetching token','wallet':self.wallet,'discord':self.discordToken,'twitter':self.twitterToken,'proxy':self.proxy,'errorMessage':"Failed fetching Token - {}".format(errMsg),'twitterProj':self.twitterReq,'discordProj':self.discordReq,'image':self.image}
+                        webhookLog(taskObject,self.session)  
+                        time.sleep(3)
                 else:
+                    retryCount +=1
                     taskLogger({"status" : "error","message":"Failed fetching page - {}".format(response.status_code),"prefix":self.prefix},self.taskId)
                     time.sleep(3)
             except Exception as e:
+                retryCount +=1
                 taskLogger({"status" : "error","message":"Failed fetching page - {}".format(e),"prefix":self.prefix},self.taskId)
                 time.sleep(3)
-        
+
+        if (retryCount >= retryThreshold and self.transferTask!=None):
+            forceTransfer = self.transferTask['forceTransfer']
+            if (forceTransfer):
+                taskLogger({"status" : "error","message":"Premint Chain task killed, force transfer is not active","prefix":self.prefix},self.taskId)
+                return False
+            else:
+                return self.transfer()
+
         if ("class=\"g-recaptcha\"" in responseData):
             taskLogger({"status" : "process","message":"Captcha required","prefix":self.prefix},self.taskId)
             self.captchaReq = True
         else:
             pass
-
-        try:
-            soup = BeautifulSoup(responseData, "html.parser")
-            tokRes = soup.find("input",{"name":"csrfmiddlewaretoken"})
-            self.csrfToken = tokRes['value']
-        except Exception as e:
-            errMsg = str(e)
-            if ("Cannot register until you connect accounts above" in responseData):
-                errMsg = "Disconnected Socials"
-
-            taskLogger({"status" : "error","message":"Failed fetching token - {}".format(errMsg),"prefix":self.prefix},self.taskId)
-            taskObject = {'url':self.targetUrl,'name':self.name,'status': "error",'taskType':"Premint",'statusMessage':'Failed fetching token','wallet':self.wallet,'discord':self.discordToken,'twitter':self.twitterToken,'proxy':self.proxy,'errorMessage':"Failed fetching Token - {}".format(errMsg),'twitterProj':self.twitterReq,'discordProj':self.discordReq,'image':self.image}
-            webhookLog(taskObject,self.session)  
-            stagger -=1 
-            return
         
         #find params here 
         paramRes = soup.find("input",{"name":"params_field"})

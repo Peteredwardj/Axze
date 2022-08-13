@@ -91,13 +91,6 @@ def disconnectSocial(session,prefix,taskId): #disconnects twitter and discord fr
 
 
 
-
-
-
-
-
-
-
 def connectDiscordRequest(token,prefix,session,taskId):
     discordString = "Connect Discord"
     try:
@@ -474,3 +467,169 @@ def browserTask(user,password,discord,twitterReq,prefix,taskId,session,mode): #L
         message = "{} ".format(e)
         instanceCtr -= 1
         return False,message
+
+
+def connectTwitterSuperful(user,ses,prefix,taskId):
+    try:
+        session = twitterSessionHandler(user,ses,prefix,taskId,True) #connect is true
+        endpoint = "https://www.superful.xyz/superful-api/v1/account/login/twitter/v1?next=https://www.superful.xyz/settings"
+        while True:
+            try:
+                taskLogger({"status" : "process","message":"Fetching Twitter Auth","prefix":prefix},taskId)
+                response = session.get(endpoint)
+                if (response.status_code == 200):
+                    responseData = json.loads(response.text)
+                    break
+                else:
+                    taskLogger({"status" : "error","message":"Failed to fetch Twitter Auth - {}".format(response.status_code),"prefix":prefix},taskId)
+                    time.sleep(3)
+            except Exception as e:
+                taskLogger({"status" : "error","message":"Failed to fetch Twitter Auth - {}".format(e),"prefix":prefix},taskId)
+                time.sleep(3)
+
+        twitterEnd = responseData['url']
+        headers = {
+            'Content-Type' :'application/x-www-form-urlencoded',
+            'Origin':'https://api.twitter.com',
+            'Referer':"https://www.superful.xyz/",
+            'user-agent': "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:102.0) Gecko/20100101 Firefox/102.0"
+        }
+
+        while True:
+            try:
+                taskLogger({"status" : "process","message":"Authorizing Twitter account","prefix":prefix},taskId)
+                response = session.get(twitterEnd, headers = headers)
+                if (response.status_code == 200):
+                    break
+                else:
+                    taskLogger({"status" : "error","message":"Failed to authorize Twitter account - {}".format(response.status_code),"prefix":prefix},taskId)
+                    time.sleep(3)
+            except Exception as e:
+                taskLogger({"status" : "error","message":"Failed to authorize Twitter account- {}".format(e),"prefix":prefix},taskId)
+                time.sleep(3)
+
+        soup = BeautifulSoup(response.text,"html.parser")
+        banItems = soup.find("meta",{'http-equiv':"refresh"}) 
+        link = banItems['content'].replace("0;url=","")
+        while True:
+            try:
+                taskLogger({"status" : "process","message":"Confirming Superful","prefix":prefix},taskId)
+                response = session.get(link)
+                if (response.status_code == 200):
+                    if ("settings" in response.url):
+                        break
+                    else:
+                        taskLogger({"status" : "error","message":"Wrong redirect - {}".format(response.url),"prefix":prefix},taskId)
+                        time.sleep(3)
+            except Exception as e:
+                taskLogger({"status" : "error","message":"Failed to confirm Superful- {}".format(e),"prefix":prefix},taskId)
+                time.sleep(3)
+        
+        while (True):
+            try:
+                taskLogger({"status" : "process","message":"Checking if socials are connected","prefix":prefix},taskId)
+                response = session.get("https://www.superful.xyz/superful-api/v1/account/settings")
+                if (response.status_code == 200):
+                    responseData = json.loads(response.text)
+                    break
+                else:
+                    taskLogger({"status" : "error","message":"Failed socials account check - {}".format(response.status_code),"prefix":prefix},taskId)
+                    time.sleep(2)
+            except Exception as e:
+                taskLogger({"status" : "error","message":"Failed socials account check  - {}".format(e),"prefix":prefix},taskId)
+                time.sleep(3)
+
+        connectedAccounts = responseData['account_connections']
+        connectedTwitter = connectedAccounts[1]['username']
+
+        if (connectedTwitter!=None):
+            taskLogger({"status" : "success","message":"Succesfully connected Twitter account to Superful","prefix":prefix},taskId)
+            return True,"success"
+                        
+        else:
+            taskLogger({"status" : "error","message":"Failed to connect Twitter account to Superful - {}".format(response.status_code),"prefix":prefix},taskId)
+            return False,"Twitter account not connected"
+    except Exception as e:
+        taskLogger({"status" : "error","message":"Failed connecting Twitter Account - {}".format(e),"prefix":prefix},taskId)
+        return False,"Failed connecting Twitter Account - {}".format(e)
+
+
+
+def connectDiscordRequestSuperful(token,prefix,session,taskId):
+    discordString = "Connect Discord"
+    try:
+        taskLogger({"status" : "process","message":"Connecting Discord Account","prefix":token},taskId)
+        
+        while True:
+            taskLogger({"status" : "process","message":"Getting Authorization redirect","prefix":prefix},taskId)
+            response = session.get("https://www.superful.xyz/superful-api/v1/account/login/discord?next=https://www.superful.xyz/settings")
+            if (response.status_code == 200):
+                '''authLink = response.url
+                authLink =  authLink.replace("%3A",":")
+                authLink = authLink.replace("%2F", "/")
+                authState = authLink.split("state=")[1]
+                authLink = authLink.replace("https://discord.com/oauth2/authorize?","https://discord.com/api/oauth2/authorize?")'''
+                responseData = json.loads(response.text)
+                authLink = responseData['url']
+                taskLogger({"status" : "success","message":"Got redirect","prefix":token},taskId)
+                break
+            else:
+                taskLogger({"status" : "error","message":"Failed to get redirect : {}".format(response.status_code),"prefix":token},taskId)
+                time.sleep(3)
+
+        #authentication request module        
+        ses = requests.session()
+        ses.proxies.update(session.proxies)
+        refLink = authLink.replace("/api","")
+        cf_cookies(token,ses,taskId,refLink) #get cf cookies here
+        headers = {
+            'Accept-Language' : 'en-US,en;q=0.5',
+            'Alt-Used' : 'discord.com',
+            'Authorization' : token,
+            'DNT' : "1",
+            'Host':'discord.com',
+            'Origin':'https://discord.com',
+            'Referer': refLink,
+            'User-Agent' : 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:102.0) Gecko/20100101 Firefox/102.0',
+            'X-Debug-Options':'bugReporterEnabled',
+            'X-Discord-Locale': 'en-US',
+            'X-Super-Properties':'eyJvcyI6Ik1hYyBPUyBYIiwiYnJvd3NlciI6IkZpcmVmb3giLCJkZXZpY2UiOiIiLCJzeXN0ZW1fbG9jYWxlIjoiZW4tVVMiLCJicm93c2VyX3VzZXJfYWdlbnQiOiJNb3ppbGxhLzUuMCAoTWFjaW50b3NoOyBJbnRlbCBNYWMgT1MgWCAxMC4xNTsgcnY6MTAyLjApIEdlY2tvLzIwMTAwMTAxIEZpcmVmb3gvMTAyLjAiLCJicm93c2VyX3ZlcnNpb24iOiIxMDIuMCIsIm9zX3ZlcnNpb24iOiIxMC4xNSIsInJlZmVycmVyIjoiIiwicmVmZXJyaW5nX2RvbWFpbiI6IiIsInJlZmVycmVyX2N1cnJlbnQiOiIiLCJyZWZlcnJpbmdfZG9tYWluX2N1cnJlbnQiOiIiLCJyZWxlYXNlX2NoYW5uZWwiOiJzdGFibGUiLCJjbGllbnRfYnVpbGRfbnVtYmVyIjoxMzc2NTAsImNsaWVudF9ldmVudF9zb3VyY2UiOm51bGx9'
+        }
+        ses.headers.update(headers)    
+        payload = {"permissions":"0","authorize":True}
+
+        while True:
+            headers['Content-Type'] = 'application/json'
+            taskLogger({"status" : "process","message":"Authorizing Superful [Discord]","prefix":token},taskId)
+            response = ses.post(authLink,data=json.dumps(payload),headers=headers)
+            if (response.status_code == 200):
+                responseJson = json.loads(response.text)
+                redirectTo = responseJson['location']
+                taskLogger({"status" : "success","message":"Authorized, redirecting [Discord]","prefix":token},taskId)
+                break
+            else:
+                taskLogger({"status" : "error","message":"Failed authorizing Discord - {}".format(response.status_code),"prefix":token},taskId)
+                time.sleep(3)
+        
+        while True:
+            try:
+                taskLogger({"status" : "process","message":"Confirming Superful","prefix":prefix},taskId)
+                response = session.get(redirectTo)
+                if (response.status_code == 200):
+                        if ("/settings" in response.url):
+                            taskLogger({"status" : "success","message":"Succesfully connected Discord account to Superful","prefix":prefix},taskId)
+                            return True,"success"
+                        else:
+                            taskLogger({"status" : "error","message":"Failed to connect Discord account to Superful , redirect : {}".format(response.url),"prefix":prefix},taskId)
+                            return False,"Failed to connect Discord account to Superful , redirect : {}".format(response.url)
+                            #time.sleep(3)
+                else:
+                    taskLogger({"status" : "error","message":"Failed to connect Discord account to Superful - {}".format(response.status_code),"prefix":prefix},taskId)
+                    time.sleep(3)
+            except Exception as e:
+                taskLogger({"status" : "error","message":"Failed to authorize Discord account- {}".format(e),"prefix":prefix},taskId)
+                time.sleep(3)
+        
+    except Exception as e:
+        taskLogger({"status" : "error","message":"Failed connecting Discord Account - {}".format(e),"prefix":token},taskId)
+        return False,"Failed connecting Discord Account - {}".format(e)
