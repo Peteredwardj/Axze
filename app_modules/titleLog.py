@@ -50,7 +50,7 @@ class classUpdateTitle():
                     sys.stdout.write("\x1b]2;{} | Running Tasks : {} | Submitted Transactions : {}| Pending Transactions : {}| Successful : {} | Failed : {}\x07".format(self.mode,running,submittedTransactions,pending,transactionSuccess,transactionFailed))
                 else:
                     ctypes.windll.kernel32.SetConsoleTitleW("{} | Running Tasks : {} | Submitted Transactions : {}| Pending Transactions : {}| Successful : {} | Failed : {}\x07".format(self.mode,running,submittedTransactions,pending,transactionSuccess,transactionFailed))
-            elif ("Discord" in self.mode or "Premint" in self.mode):
+            elif ("Discord" in self.mode or "Premint" in self.mode or "Superful"):
                 if platform == "darwin":
                     sys.stdout.write("\x1b]2;{} | Running Tasks : {} | Successful : {}| Failed : {}\x07".format(self.mode,running,transactionSuccess,transactionFailed))
                 else:

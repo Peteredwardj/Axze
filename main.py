@@ -36,6 +36,7 @@ serverQuickMint = False
 serverActive = False
 threadsArr=[]
 profileDict = {}
+timeoutExit = 1000000
 
 style = style_from_dict({
     Token.QuestionMark: '#01b3b6',
@@ -526,7 +527,7 @@ def taskHandler(mode,inputUrl,additionalParam = None):
                             profileIterator += 1
                         else:
                             print(red+"\{} chain stopped".format(taskString)+reset)
-                            time.sleep(1000000)
+                            time.sleep(timeoutExit)
                         
 
 
@@ -893,7 +894,7 @@ def main():
         for t in threadsArr:
             t.join()      
 
-        time.sleep(1000000)
+        time.sleep(timeoutExit)
     else:
         print(red+"No Tasks found!"+reset)
     

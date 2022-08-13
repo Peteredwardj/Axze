@@ -497,8 +497,42 @@ def connectTwitterSuperful(user,ses,prefix,taskId):
 
         while True:
             try:
-                taskLogger({"status" : "process","message":"Authorizing Twitter account","prefix":prefix},taskId)
+                taskLogger({"status" : "process","message":"Fetching Twitter authprization","prefix":prefix},taskId)
                 response = session.get(twitterEnd, headers = headers)
+                if (response.status_code == 200):
+                    break
+                else:
+                    taskLogger({"status" : "error","message":"Failed to authorize Twitter authorization - {}".format(response.status_code),"prefix":prefix},taskId)
+                    time.sleep(3)
+            except Exception as e:
+                taskLogger({"status" : "error","message":"Failed to authorize Twitter authorization- {}".format(e),"prefix":prefix},taskId)
+                time.sleep(3)
+
+        soup = BeautifulSoup(response.text,"html.parser")
+        formItems = soup.find_all('input',{'type':"hidden"}) 
+        dictObj = {}
+        for item in formItems:
+            dictObj[item['name']] = item['value']
+        parsed = urlparse(dictObj['referer'])
+        oauthToken = parse_qs(parsed.query)['oauth_token'][0]
+
+        payload = {
+            "authenticity_token" : dictObj['authenticity_token'],
+            "redirect_after_login" :"https://api.twitter.com/oauth/authorize?oauth_token={}".format(oauthToken),
+            "oauth_token" : oauthToken
+        }
+
+        headers = {
+            'Content-Type' :'application/x-www-form-urlencoded',
+            'Origin':'https://api.twitter.com',
+            'Referer':"https://api.twitter.com"+dictObj['referer'],
+            'user-agent': "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:102.0) Gecko/20100101 Firefox/102.0"
+        }
+
+        while True:
+            try:
+                taskLogger({"status" : "process","message":"Authorizing Twitter account","prefix":prefix},taskId)
+                response = session.post("https://api.twitter.com/oauth/authorize",data = payload, headers = headers)
                 if (response.status_code == 200):
                     break
                 else:
@@ -511,6 +545,7 @@ def connectTwitterSuperful(user,ses,prefix,taskId):
         soup = BeautifulSoup(response.text,"html.parser")
         banItems = soup.find("meta",{'http-equiv':"refresh"}) 
         link = banItems['content'].replace("0;url=","")
+       
         while True:
             try:
                 taskLogger({"status" : "process","message":"Confirming Superful","prefix":prefix},taskId)

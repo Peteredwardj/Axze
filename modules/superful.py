@@ -95,7 +95,9 @@ class superful():
 
 
         if ("disconnect" in self.mode):
-            self.disconnect()
+            res = self.disconnect()
+            if (res):
+                updateTitleCall.addSuccess()
         elif ("connect" in self.mode):
             res,message = self.checkConnected()
             if (message != "connected-before"):
@@ -160,6 +162,8 @@ class superful():
                     return False,"Failed Twitter setup - {}".format(message)
             taskLogger({"status" : "warn","message":"Twitter is not connected!","prefix":self.prefix},self.taskId)
             res,message = connectTwitterSuperful(self.twitterToken,self.session,self.prefix,self.taskId)
+            if (res == False):
+                return res,message #return on fail
 
         if (connectedDiscord == None and self.discordToken!="Unspecified"):
             taskLogger({"status" : "warn","message":"Discord is not connected and token is supplied in excel file!","prefix":self.prefix},self.taskId)
@@ -190,6 +194,7 @@ class superful():
                 except Exception as e:
                     taskLogger({"status" : "error","message":"Failed disconnecting {} - {}".format(orderArr[endpoint],e),"prefix":self.prefix},self.taskId)
                     time.sleep(3)
+        return True
                     
     def login(self):
         self.session.headers['content-type'] = 'application/json'
@@ -397,7 +402,7 @@ class superful():
                 updateTitleCall.addFail()
                 taskLogger({"status" : "error","message":"Failed submitting entry - {}!".format(e),"prefix":self.prefix},self.taskId)
                 retryCount += 1
-                time.sleep(3)
+                self.requestSolutionMon()
 
         if (self.transferTask!=None):
             forceTransfer = self.transferTask['forceTransfer']
@@ -406,8 +411,6 @@ class superful():
                 return False
             return self.transfer()
            
-
-    
     def verify(self):
         pageSize = 100
         endpoint = "https://www.superful.xyz/superful-api/v1/project/event/submissions?type=raffle&page=1&page_size={}&status=joined".format(pageSize)
