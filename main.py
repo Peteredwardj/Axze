@@ -508,7 +508,7 @@ def taskHandler(mode,inputUrl,additionalParam = None):
                     #print(red+"{} not found in wallets.xlsx, skipping!".format(profile)+reset)
                 else:
                     if (runPremintChain == False):
-                        if ("premint" in mode):
+                        if ("premint" in inputUrl):
                             t = threading.Thread(target=premint(inputUrl,profiles[profile]['wallet'],profiles[profile]['apiKey'],twitter,password,discord,accessToken,accessSecret,consumerKey,consumerSecret,mode,profile,None,customField,discordMode,reactParam).connect)
                         else:
                             t = threading.Thread(target=superful(inputUrl,profiles[profile]['wallet'],profiles[profile]['apiKey'],twitter,password,discord,accessToken,accessSecret,consumerKey,consumerSecret,mode,profile,None,customField,discordMode,reactParam).connect)
@@ -517,7 +517,7 @@ def taskHandler(mode,inputUrl,additionalParam = None):
                         if (profileIterator == 0):
                             clearConsole()
                         transferTask = {'forceTransfer' : forceTransfer,'nextWallet':transferProfileArr[profileIterator],'maxGasFee':maxFeePerGas,'maxPriorityFee':maxPriorityFee,'amount':amount}
-                        if ("premint" in mode):
+                        if ("premint" in inputUrl):
                             premintObj = premint(inputUrl,profiles[profile]['wallet'],profiles[profile]['apiKey'],twitter,password,discord,accessToken,accessSecret,consumerKey,consumerSecret,mode,profile,transferTask,customField,discordMode,reactParam)
                         else:
                             premintObj = superful(inputUrl,profiles[profile]['wallet'],profiles[profile]['apiKey'],twitter,password,discord,accessToken,accessSecret,consumerKey,consumerSecret,mode,profile,transferTask,customField,discordMode,reactParam)
