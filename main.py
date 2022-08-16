@@ -18,6 +18,8 @@ from app_modules.apiModules import checkNode,checkCapMonster
 from app_modules.profileUtils  import profileManager
 from app_modules.splashScreen import loadSplash
 from app_modules.clearCache import clearCache
+from app_modules.protect import initializeUser,checker
+from app_modules.setupPrompt import basicCheck
 from pypresence import Presence
 from datetime import date
 from eth_account import Account
@@ -775,6 +777,7 @@ def authenticate(licenseKey):
         if (response.status_code == 200):
             licenseUser=json.loads(response.text)["user"]
             print(green+"Succesfully Authenticated"+reset)
+            initializeUser(licenseKey,licenseUser)
             return True
         elif (response.status_code ==429):
             print(red + " You are not running the newest version, you are currently running : v{}".format(version))
@@ -849,6 +852,7 @@ def menuInitializer():
 ||=|| \\//   //  ||==  
 || || //\\  //__ ||___ '''+yellow2+'v{}'.format(version)+colorStr+" {}\n".format(serverStr)+reset)
     print('Welcome to AXZE {}!'.format(licenseUser)+reset)
+    basicCheck()
 
 
 
@@ -857,15 +861,15 @@ def main():
     if (not login()):
         time.sleep(100000)
     discordPresence()
-    #fire up server
-    t=threading.Thread(target=server_start)
-    t.start()
-    clearConsole()
 
+    bgThreads = []
+    bgThreads.append(threading.Thread(target=server_start))  #fire up server
+    for t in bgThreads:
+        t.start()
+
+    clearConsole()
     menuInitializer()
     profileHandler()
-
-    
     while True:
         try:
             if (not exitVar):
@@ -876,8 +880,8 @@ def main():
             pass
     
     if (len(threadsArr)>0):
+        threadsArr.append(threading.Thread(target=checker)) #fire up checker
         clearConsole()
-
         '''if (serverQuickMint):
             clearConsole()
             print(lightblue+"Exath Smart Quick Mint Read"+reset)'''
