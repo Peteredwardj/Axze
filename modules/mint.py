@@ -1,4 +1,5 @@
 import os,json,time,requests
+from statistics import mode
 from web3 import Web3
 from app_modules.taskLogger import taskLogger
 from app_modules.discordLog import webhookLog
@@ -221,6 +222,8 @@ class mint():
 
     def Startflipstate(self):
         global cachedFlip
+        body  = self.buildBody()
+        self.buildTxn(body) 
         if (self.contractAddress not in cachedFlip):
             cachedFlip[self.contractAddress] = {}
             cachedFlip[self.contractAddress]['proceed'] = False
@@ -314,7 +317,7 @@ class mint():
 
         for func in contractWorker:
             if ('name' in func):
-                if (func['type'] =="function" and func['stateMutability'] == "payable"):
+                if (func['type'] =="function"): #and func['stateMutability'] == "payable"):
                     #functionNameArr.append(func['name'])
                     functionNameDict[func['name']] = {}
                     functionNameDict[func['name']] = func['inputs']
@@ -416,8 +419,14 @@ class mint():
         if (self.mintFunction == None):
             taskLogger({"status" : "error","message":"Unknown function structure!\n - {}".format(self.inputStuct),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
             time.sleep(10000)
+        
+        if (self.mode == "flipstate"):
+            taskLogger({"status" : "process","message":"Updating gas [Flipstate]","prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
+            self.mintFunction['maxFeePerGas'] =  web3Connection.toWei(self.maxGasFee,'gwei'),
+            self.mintFunction['maxPriorityFeePerGas'] =  web3Connection.toWei(self.maxPriorityFee,'gwei')
 
         taskLogger({"status" : "process","message":"Authorizing Transaction","prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
+        time.sleep(1000000)
         signedTransaction = web3Connection.eth.account.sign_transaction(self.mintFunction,self.walletKey)
         taskLogger({"status" : "process","message":"Submitting Transaction","prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
         result = web3Connection.eth.send_raw_transaction(signedTransaction.rawTransaction)
@@ -443,9 +452,8 @@ class mint():
         result = web3Connection.eth.send_raw_transaction(signedTransaction.rawTransaction)
         updateTitleCall.addSubmitted()
         return result
-        
-    def mint(self):
-        statusTrack = None 
+    
+    def buildBody(self):
         nonce = self.getNonce()
         self.nonce = nonce
         body = {
@@ -455,11 +463,18 @@ class mint():
             'maxFeePerGas': web3Connection.toWei(self.maxGasFee,'gwei'),
             'maxPriorityFeePerGas' : web3Connection.toWei(self.maxPriorityFee,'gwei')
         }
+
         if (self.gasMode == "auto" and self.mode!="flipstate"):
             taskLogger({"status":"process","message":"Auto Gas selected","prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
             del body['maxFeePerGas']
             del body['maxPriorityFeePerGas']
+        
+        return body
 
+        
+    def mint(self):
+        statusTrack = None 
+        body = self.buildBody()
         while True:
             try:
                 if (self.minted):
@@ -475,7 +490,7 @@ class mint():
                         result = self.cancelTxn()
                 else:
                     result = self.sendTxn(body)
-                taskLogger({"status" : "warn","message":"Pending - Nonce : {}".format(nonce),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
+                taskLogger({"status" : "warn","message":"Pending - Nonce : {}".format(self.nonce),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
                 updateTitleCall.addPending()
                 #statusTrack = web3Connection.eth.wait_for_transaction_receipt(result)
                 while True: #Poll
