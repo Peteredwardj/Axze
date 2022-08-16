@@ -895,8 +895,8 @@ def main():
         for t in threadsArr:
             t.start()
 
-        for t in threadsArr:
-            t.join()      
+        '''for t in threadsArr:
+            t.join()'''      
 
         time.sleep(timeoutExit)
     else:
