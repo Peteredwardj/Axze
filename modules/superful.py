@@ -438,13 +438,13 @@ class superful():
         elif (status == "pending"):
             taskLogger({"status" : "success","message":"Verified Entry".format(self.twitterReq[0]),"prefix":self.prefix},self.taskId)
             return True
-        elif (status == "won" or status == "selected"):
+        elif (status == "accepted" or status == "selected"):
             updateTitleCall.addSuccess()
             taskLogger({"status" : "success","message":"Won raffle!","prefix":self.prefix},self.taskId)
             taskObject = {'url':self.targetUrl,'name':self.name,'status': "success",'taskType':"SuperfulWin",'statusMessage':'🏆 Won Raffle 🏆','wallet':self.wallet,'discord':self.discordToken,'twitter':self.twitterToken,'proxy':self.proxy,'errorMessage':"You were selected!",'twitterProj':self.twitterReq,'discordProj':self.discordReq,'image':self.image}
             webhookLog(taskObject,self.session)
             return True 
-        elif (status == "lost"):
+        elif (status == "rejected"):
             updateTitleCall.addFail()
             taskLogger({"status" : "error","message":"Lost raffle!","prefix":self.prefix},self.taskId)
             return True #we don't want to run the next modules
