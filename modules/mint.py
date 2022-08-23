@@ -426,7 +426,6 @@ class mint():
             self.mintFunction['maxPriorityFeePerGas'] =  web3Connection.toWei(self.maxPriorityFee,'gwei')
 
         taskLogger({"status" : "process","message":"Authorizing Transaction","prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
-        time.sleep(1000000)
         signedTransaction = web3Connection.eth.account.sign_transaction(self.mintFunction,self.walletKey)
         taskLogger({"status" : "process","message":"Submitting Transaction","prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
         result = web3Connection.eth.send_raw_transaction(signedTransaction.rawTransaction)
