@@ -11,6 +11,8 @@ from modules.mint import mint
 from modules.invite import inviteTask
 from modules.premint import premint
 from modules.superful import superful
+from modules.hoard import hoard
+from modules.humanKind import humanKind
 from app_modules.discordLog import testLog
 from app_modules.version import version
 from app_modules.taskLogger import lightblue,green,red,yellow,reset,expColor,yellow2
@@ -28,7 +30,7 @@ from waitress import serve
 from flask_restful import Resource,Api
 import shutil,tempfile
 
-global licenseUser,currentSheet,quickMintSheet,quickTaskThreads
+global licenseUser,currentSheet,quickMintSheet,quickTaskThreads,licenseKeyGlobal
 currentObjectSet = []
 quickTaskThreads=[]
 exitVar = False
@@ -39,6 +41,7 @@ serverActive = False
 threadsArr=[]
 profileDict = {}
 timeoutExit = 1000000
+hoardWalletDict = {"wallet" : "" , "key": ""}
 
 style = style_from_dict({
     Token.QuestionMark: '#01b3b6',
@@ -56,12 +59,14 @@ mainMenu = [
         'name': 'main',
         'message': 'Choose an option',
         'choices': [
-            'Start Mint Tasks [ETH]',
-            'Start Quick Mint [ETH]',
-            #'Start Smart Quick Mint [ETH]',
-            'Start Wallet Generator [ETH]',
+            'Start Mint Tasks',
+            'Start Quick Mint',
+            'Start Hoard Modules',
+            #'Start Smart Quick Mint',
+            'Start Wallet Generator',
             'Start Premint Modules',
             'Start Superful Modules',
+            'Start Custom Raffle Modules',
             'Profile Management',
             'Settings'
         ]
@@ -395,6 +400,34 @@ def taskHandler(mode,inputUrl,additionalParam = None):
                         else:
                             t = threading.Thread(target=superful(inputUrl,profiles[profile]['wallet'],profiles[profile]['apiKey'],'-','password','discord','accessToken','accessSecret','consumerKey','consumerSecret',mode,profile,None,None).connect)
                         threadsArr.append(t)
+
+        elif (mode == "customRaffle-humanKind"):
+            premintTask = True
+            catchallInput = input("For tasks with empty email field, Axze will generate a random email based on your catchall.\nInput catchall domain (e.x customDomain.com): ")
+            catchallInput = catchallInput.replace(" ","")
+            PATH = "files/customRaffle.xlsx"
+            sheetData = pd.read_excel(PATH,engine='openpyxl',header = 0,names=['profile','twitter','discord','email'],na_filter=False)
+            currentSheet = sheetData
+            profileIterator = 0
+            for i in sheetData.itertuples():
+                if (i.profile == ''):
+                    continue
+                profile = i.profile
+                if (i.discord == ''):
+                    discord = "Unspecified"
+                else:
+                    discord = i.discord
+                twitter = i.twitter
+                if (i.email == ''):
+                    email =  {"catchall" : True , "content" : catchallInput}
+                else:
+                    email =  {"catchall" : False , "content" : i.email}
+            if (profile not in profiles):
+                    print(red+"{} not found in wallet.xlsx, skipping!".format(profile)+reset)
+            else:
+                t = threading.Thread(target=humanKind("https://forms.bueno.art/humankind",profiles[profile]['wallet'],profiles[profile]['apiKey'],twitter,"discordToken",email,profile).connect)  
+                threadsArr.append(t)              
+
         else:
 
             premintTask = True
@@ -576,21 +609,47 @@ def discordModules(mode):
     exitVar=True
 
 
+def checkHoardAccess():
+    endpoint = "https://api.axze.io/hoard?key={}".format(licenseKeyGlobal)
+    try:
+        response = requests.get(endpoint)
+        if (response.status_code == 200):
+            whitelistWallet = json.loads(response.text)['whitelistWallet']
+            return True,whitelistWallet
+        else:
+            return False,"{}".format(response.text)
+    except Exception as e:
+        return False,str(e)
+
+def handleHoardStartup():
+    contractAddress = input(lightblue+"Enter contract to run: "+reset)
+    noOfIterator = int(input(lightblue+"Enter number of hoarders to run: "+reset))
+    amount = float(input(lightblue+"Enter Amount needed per hoarder (Ether): "+reset))
+    quantity = int(input(lightblue+"Enter Quantity to run per hoarder: "+reset))
+    mintFunc = input(lightblue+ "Input mint function, hit Enter to skip and do autoscrape: "+reset)
+    if (mintFunc == ""):
+        mintFunc = "default"
+    maxFeePerGas = float(input(lightblue+ "Enter Max Fee per gas in GWEI : "+reset))
+    maxPriorityFee = float(input(lightblue+"Enter Max Priority Fee in GWEI : "+reset))
+    clearConsole()
+    hoard(amount,quantity,hoardWalletDict['wallet'],hoardWalletDict['key'],contractAddress,mintFunc,maxFeePerGas,maxPriorityFee,"manual",noOfIterator,"mint").order()
+
+
 
 def optionHandler(answer):
-    global exitVar,threadsArr,serverQuickMint
+    global exitVar,threadsArr,serverQuickMint,hoardWalletDict
     if ("main" in answer): #main menu option
         option = answer['main']
-        if (option == "Start Mint Tasks [ETH]"):
+        if (option == "Start Mint Tasks"):
             taskHandler("ethMint","none")
-        elif (option =="Start Quick Mint [ETH]"):
+        elif (option =="Start Quick Mint"):
             taskHandler("quickMint","none")
-        elif (option == 'Start Smart Quick Mint [ETH]'):
+        elif (option == 'Start Smart Quick Mint'):
             t=threading.Thread(target=server_start)
             threadsArr.append(t)
             serverQuickMint = True
             exitVar = True
-        elif (option =="Start Wallet Generator [ETH]"):
+        elif (option =="Start Wallet Generator"):
             numToGen = int(input(lightblue+"Input number of wallets to generate : "+reset))
             walletGenerator(numToGen)
         elif (option == "Start Discord Modules"):
@@ -641,7 +700,52 @@ def optionHandler(answer):
                     'Winner Check',
             ]
             }]
-            questionPrompt(question)
+            questionPrompt(question) 
+        
+        elif (option == "Start Custom Raffle Modules"):
+            question = [{
+                'type' : 'list',
+                'name' : 'Custom Raffle Menu',
+                'message' : 'Choose module to run',
+                'choices' : [
+                    'HumanKind Raffle',
+            ]
+            }]
+            questionPrompt(question) 
+
+        elif (option == "Start Hoard Modules"):
+            question = [{
+                'type' : 'list',
+                'name' : 'Hoard Menu',
+                'message' : 'Choose module to run',
+                'choices' : [
+                    'Start Hoard Mode',
+                    'Generate Hoarders',
+                    'Check number of owned Hoarders',
+                    '[Emergency Function] Force withdraw NFTS from all my Hoarders',
+                    '[Emergency Function] Force withdraw ETH from all my Hoarders'
+            ]
+            }]
+            status,response = checkHoardAccess()
+            if (status == False):
+                print(red+"You do not have access to Hoard Mode - {}".format(response)+reset)
+                return
+            else:
+                print(yellow2+"You have access to Hoard Mode, your saved Hoard wallet is : {}".format(response)+reset)
+                hoardWalletDict["wallet"] = response
+                #extract hoard wallet detail from profiles 
+                profiles = profileDict
+                found = False
+                for profile in profiles:
+                    if (profiles[profile]['wallet'] == hoardWalletDict["wallet"]):
+                        hoardWalletDict['key'] = profiles[profile]['apiKey']
+                        print(green+"Succesfully loaded Hoard Wallet details from your profiles [{}]".format(profile)+reset)
+                        found = True
+                        break
+                if (found == False):
+                    print(red + "Could not get details of saved Hoard Wallet in your profiles.\nMake sure you have a profile saved for {} in wallet.xlsx".format(response))
+                
+                questionPrompt(question)
 
         elif (option == "Profile Management"):
             profileOption = input(lightblue+"[1] Create/Edit profile groups [2] View profile groups: "+reset)
@@ -693,6 +797,37 @@ def optionHandler(answer):
             else:
                 mode = "fast"
             discordModules({'invites':discInviteLink,'delay':delay,'mode':mode})
+
+    elif ("Hoard Menu" in answer):        
+        if (answer["Hoard Menu"] == "Start Hoard Mode"):
+            handleHoardStartup()
+        elif (answer["Hoard Menu"] == "Generate Hoarders"):
+            print(yellow2+"Hoarders are burner contracts that will mint and transfer NFTs to your main Hoard Wallet.\nHoarders only need to be generated and deployed once."+reset)
+            noOfHoarders = int(input("Input the number of hoarders to generate and deploy (max 50/txn, max 100/wallet): "))
+            maxFeePerGas = float(input(lightblue+ "Enter Max Fee per gas in GWEI : "+reset))
+            maxPriorityFee = float(input(lightblue+"Enter Max Priority Fee in GWEI : "+reset))
+            clearConsole()
+            hoard(0,0,hoardWalletDict['wallet'],hoardWalletDict['key'],'contractAddress','mintFunc',maxFeePerGas,maxPriorityFee,"manual",noOfHoarders,"add").order()
+        elif (answer["Hoard Menu"] == "Check number of owned Hoarders"):
+            hoard(0,0,hoardWalletDict['wallet'],hoardWalletDict['key'],'contractAddress','mintFunc',0,0,"manual",0,"check").order()
+        elif (answer["Hoard Menu"] == "[Emergency Function] Force withdraw NFTS from all my Hoarders"):
+            print(yellow2+"In the event where the NFTs are not transferred to your main Hoard Wallet automatically,this module force withdraws them from all your hoarders."+reset)
+            contractAddress = input(lightblue+"Enter contract address of NFTs to withdraw: "+reset)
+            maxFeePerGas = float(input(lightblue+ "Enter Max Fee per gas in GWEI : "+reset))
+            maxPriorityFee = float(input(lightblue+"Enter Max Priority Fee in GWEI : "+reset))
+            clearConsole()
+            hoard(0,0,hoardWalletDict['wallet'],hoardWalletDict['key'],contractAddress,'mintFunc',maxFeePerGas,maxPriorityFee,"manual",0,"withdrawNFT").order()
+        else:
+            print(yellow2+"In the unlikely event where ETH is stuck in your Hoarders,this module force withdraws all of them"+reset)
+            maxFeePerGas = float(input(lightblue+ "Enter Max Fee per gas in GWEI : "+reset))
+            maxPriorityFee = float(input(lightblue+"Enter Max Priority Fee in GWEI : "+reset))
+            clearConsole()
+            hoard(0,0,hoardWalletDict['wallet'],hoardWalletDict['key'],contractAddress,'mintFunc',maxFeePerGas,maxPriorityFee,"manual",0,"withdrawFunds").order()
+
+
+
+            
+
     elif ("Premint Menu" in answer):
         if (answer["Premint Menu"] == "Premint Connect"):
             modeChoice= input(lightblue+"Run One time Twitter accounts setup with Proxies?[y/n]: "+reset)
@@ -740,6 +875,10 @@ def optionHandler(answer):
             else:
                 print(lightblue+ "Checking entries result for : {}".format(inputUrl)+reset)
                 taskHandler("check",inputUrl)
+    
+    elif ("Custom Raffle Menu" in answer):
+        if (answer["Custom Raffle Menu"] == "HumanKind Raffle"):
+            taskHandler("customRaffle-humanKind","https://forms.bueno.art/humankind")
 
             
     elif ("Discord Webhook Setting" in answer):
@@ -772,7 +911,7 @@ def authenticate(licenseKey):
             "version":str(version)
         }
         headers={'Content-Type':'application/json'}
-        authUrl = "https://api.exath.io/api/nexusAuth"
+        authUrl = "https://api.axze.io/authenticate"
         response=requests.post(authUrl,data=json.dumps(payload),headers=headers)
         if (response.status_code == 200):
             licenseUser=json.loads(response.text)["user"]
@@ -792,6 +931,7 @@ def authenticate(licenseKey):
 
 
 def login():
+    global licenseKeyGlobal
     toReturn = False
     with open('app_data/license.json') as f:
         data = json.load(f)
@@ -800,12 +940,15 @@ def login():
             toReturn = authenticate(licenseKey)
             if (toReturn):
                 data['License'] = licenseKey
+                licenseKeyGlobal = licenseKey
                 with open('app_data/license.json','w') as p:
                     json.dump(data, p,indent=4)
                     p.close()
         else:
             print(yellow+"Verifying license.."+reset)
             toReturn = authenticate(data['License'])
+            if (toReturn):
+                licenseKeyGlobal = data['License']
     f.close()
     return toReturn
 
