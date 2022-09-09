@@ -11,7 +11,7 @@ from bs4 import BeautifulSoup
 
 global web3Connection
 etherScanApi = 'RITWHK4P371RN5G4PY1WGMNT3XQ32M9BVU'
-hoardContract = '0x7803c3f574cc9834fb9688cedef5151b46664b27'
+hoardContract = '0x7803C3f574cC9834Fb9688cedef5151b46664B27'
 updateTitleCall=classUpdateTitle("Hoard")
 cachedContracts = {}
 cachedContractProperty = {}
@@ -269,13 +269,20 @@ class hoard():
             taskLogger({"status" : "error","message":"Failed initializing Mint contract- {}".format(e),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
         
         self.contractAbi = self.fetchProperties()         #self.contractAbi = randABI
-        self.contract = web3Connection.eth.contract(address = self.contractAddress, abi = self.contractAbi)
+        try:
+            self.contract = web3Connection.eth.contract(address = self.contractAddress, abi = self.contractAbi)
+        except:
+            taskLogger({"status" : "error","message":"Failed to load Mint contract ABI [Initialization]","prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
+            time.sleep(3600)
         self.mintFunctionCall = self.functionLogicScrape()
         taskLogger({"status" : "success","message":"Initialized Mint contract - {}".format(self.mintFunctionCall),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
 
     def functionLogicScrape(self): #Seach for a possible function here 
         functionNameDict={}
-        contractWorker = json.loads(self.contractAbi)
+        try:
+            contractWorker = json.loads(self.contractAbi)
+        except :
+            taskLogger({"status" : "error","message":"Failed to load Mint contract ABI","prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
         negative = ['presale','whitelist','owner','admin','allow','owner','dev']
         continueVar = True
 
