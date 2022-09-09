@@ -1,5 +1,7 @@
 import os 
-import random
+import random,time
+from app_modules.taskLogger import red,reset
+
 
 
 choiceNumber=-1
@@ -13,6 +15,9 @@ def proxy_choice():
     proxies = (f.read()).split("\n")
     proxies=[proxy for proxy in proxies if proxy!='']
     length=len(proxies)
+    if (length ==0):
+        print(red+"No Proxies found, please load them in app_data/proxies.txt"+reset)
+        time.sleep(3000)
     if choiceNumber<length-1:
         choiceNumber=choiceNumber+1
     else:
