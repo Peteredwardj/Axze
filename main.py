@@ -422,11 +422,11 @@ def taskHandler(mode,inputUrl,additionalParam = None):
                     email =  {"catchall" : True , "content" : catchallInput}
                 else:
                     email =  {"catchall" : False , "content" : i.email}
-            if (profile not in profiles):
-                    print(red+"{} not found in wallet.xlsx, skipping!".format(profile)+reset)
-            else:
-                t = threading.Thread(target=humanKind("https://forms.bueno.art/humankind",profiles[profile]['wallet'],profiles[profile]['apiKey'],twitter,"discordToken",email,profile).connect)  
-                threadsArr.append(t)              
+                if (profile not in profiles):
+                        print(red+"{} not found in wallet.xlsx, skipping!".format(profile)+reset)
+                else:
+                    t = threading.Thread(target=humanKind("https://forms.bueno.art/humankind",profiles[profile]['wallet'],profiles[profile]['apiKey'],twitter,"discordToken",email,profile).connect)  
+                    threadsArr.append(t)              
 
         else:
 

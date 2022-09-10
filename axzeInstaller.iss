@@ -2,9 +2,9 @@
 ; SEE THE DOCUMENTATION FOR DETAILS ON CREATING INNO SETUP SCRIPT FILES!
 
 #define MyAppName "Axze"  ;valid version
-#define MyAppVersion "1.2.1"
+#define MyAppVersion "1.3.1"
 #define MyAppPublisher "Exath"
-#define MyAppURL "https://www.exath.io"
+#define MyAppURL "https://www.axze.io"
 #define MyAppExeName "Axze.exe"
 #define MyAppAssocName MyAppName + ""
 #define MyAppAssocExt ".myp"
