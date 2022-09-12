@@ -737,7 +737,7 @@ def optionHandler(answer):
                 profiles = profileDict
                 found = False
                 for profile in profiles:
-                    if (profiles[profile]['wallet'] == hoardWalletDict["wallet"]):
+                    if (profiles[profile]['wallet'].lower() == hoardWalletDict["wallet"].lower()):
                         hoardWalletDict['key'] = profiles[profile]['apiKey']
                         print(green+"Succesfully loaded Hoard Wallet details from your profiles [{}]".format(profile)+reset)
                         found = True
@@ -798,18 +798,23 @@ def optionHandler(answer):
                 mode = "fast"
             discordModules({'invites':discInviteLink,'delay':delay,'mode':mode})
 
-    elif ("Hoard Menu" in answer):        
+    elif ("Hoard Menu" in answer):      
+        defAddress = '0x1D4F2182475bb9985BfE7a756f5B2e003e0Bc4d5' 
         if (answer["Hoard Menu"] == "Start Hoard Mode"):
             handleHoardStartup()
         elif (answer["Hoard Menu"] == "Generate Hoarders"):
             print(yellow2+"Hoarders are burner contracts that will mint and transfer NFTs to your main Hoard Wallet.\nHoarders only need to be generated and deployed once."+reset)
-            noOfHoarders = int(input("Input the number of hoarders to generate and deploy (max 50/txn, max 100/wallet): "))
-            maxFeePerGas = float(input(lightblue+ "Enter Max Fee per gas in GWEI : "+reset))
-            maxPriorityFee = float(input(lightblue+"Enter Max Priority Fee in GWEI : "+reset))
+            try:
+                noOfHoarders = int(input("Input the number of hoarders to generate and deploy (max 50/txn, max 100/wallet): "))
+                maxFeePerGas = float(input(lightblue+ "Enter Max Fee per gas in GWEI : "+reset))
+                maxPriorityFee = float(input(lightblue+"Enter Max Priority Fee in GWEI : "+reset))
+            except Exception as e:
+                print(red+"Hoard Task Input error - {}".format(e)+reset)
+                return
             clearConsole()
-            hoard(0,0,hoardWalletDict['wallet'],hoardWalletDict['key'],'contractAddress','mintFunc',maxFeePerGas,maxPriorityFee,"manual",noOfHoarders,"add").order()
+            hoard(0,0,hoardWalletDict['wallet'],hoardWalletDict['key'],defAddress,'mintFunc',maxFeePerGas,maxPriorityFee,"manual",noOfHoarders,"add").order()
         elif (answer["Hoard Menu"] == "Check number of owned Hoarders"):
-            hoard(0,0,hoardWalletDict['wallet'],hoardWalletDict['key'],'contractAddress','mintFunc',0,0,"manual",0,"check").order()
+            hoard(0,0,hoardWalletDict['wallet'],hoardWalletDict['key'],defAddress,'mintFunc',0,0,"manual",0,"check").order()
         elif (answer["Hoard Menu"] == "[Emergency Function] Force withdraw NFTS from all my Hoarders"):
             print(yellow2+"In the event where the NFTs are not transferred to your main Hoard Wallet automatically,this module force withdraws them from all your hoarders."+reset)
             contractAddress = input(lightblue+"Enter contract address of NFTs to withdraw: "+reset)
@@ -822,7 +827,8 @@ def optionHandler(answer):
             maxFeePerGas = float(input(lightblue+ "Enter Max Fee per gas in GWEI : "+reset))
             maxPriorityFee = float(input(lightblue+"Enter Max Priority Fee in GWEI : "+reset))
             clearConsole()
-            hoard(0,0,hoardWalletDict['wallet'],hoardWalletDict['key'],contractAddress,'mintFunc',maxFeePerGas,maxPriorityFee,"manual",0,"withdrawFunds").order()
+            hoard(0,0,hoardWalletDict['wallet'],hoardWalletDict['key'],defAddress,'mintFunc',maxFeePerGas,maxPriorityFee,"manual",0,"withdrawFunds").order()
+        
 
 
 
