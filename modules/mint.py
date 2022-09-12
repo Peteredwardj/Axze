@@ -150,16 +150,13 @@ class mint():
             global cachedContractProperty
             if (self.contractAddress not in cachedContractProperty):
                 cachedContractProperty[self.contractAddress] = None
-                looksRare = "https://api.looksrare.org/api/v1/collections?address={}".format(self.contractAddress)
-                response = requests.get(looksRare)
+                endpoint = "https://api.opensea.io/api/v1/asset_contract/{}".format(self.contractAddress)
+                headers = {"X-API-KEY": "a4dc98c6cd5b429a8a9ba947c4aceb91"}
+                response = requests.get(endpoint, headers=headers)
                 responseJson = json.loads(response.text)
-                contractOwner = responseJson["data"]["owner"]
-                opensea = "https://api.opensea.io/api/v1/collections?asset_owner={}&offset=0&limit=300".format(contractOwner)
-                response = requests.get(opensea)
-                responseJson = json.loads(response.text)
-                self.mintName = responseJson[0]['primary_asset_contracts'][0]['name']
-                self.imageUrl = responseJson[0]['primary_asset_contracts'][0]['image_url']
-                self.osLink = "https://opensea.io/collection/"+responseJson[0]['slug']
+                self.mintName = responseJson['collection']['name']
+                self.imageUrl = responseJson['image_url']
+                self.osLink = "https://opensea.io/collection/"+responseJson['collection']['slug']
                 cachedContractProperty[self.contractAddress] = {"mintName": self.mintName,"imageUrl":self.imageUrl,"osLink":self.osLink}
             else:
                 while (cachedContractProperty[self.contractAddress] == None):
@@ -517,8 +514,16 @@ class mint():
                     transactionHash = statusTrack['transactionHash'].hex()
                     blockNumber = statusTrack['blockNumber']
                     gasUsed = statusTrack['gasUsed']
+                    transactionCost = gasUsed
+                    try:
+                        gasPrice = web3Connection.eth.get_transaction(result)['gasPrice']
+                        transactionCost = gasUsed * gasPrice
+                        transactionCost = web3Connection.fromWei(transactionCost,'ether')
+                        transactionCost = str(transactionCost)[:6]
+                    except:
+                        pass
                     self.contractPropertyScrape()
-                    taskObject = {"status": "success","taskType": "Mint","receiver": self.contractAddress,"value": self.amount,"gas" : gasUsed , "mode": self.mode , "maxFee" : self.maxGasUsed, "wallet" : self.profileName, "transaction" : transactionHash , "osLink":self.osLink, "image":self.imageUrl,"mintName":self.mintName,"quickMintLink":"https://api.axze.io/share?contractAddress={}&func={}&qty={}&price={}".format(self.contractAddress,self.mintFunctionCall,self.quantity,self.amount)}
+                    taskObject = {"status": "success","taskType": "Mint","receiver": self.contractAddress,"value": self.amount,"gas" : transactionCost , "mode": self.mode , "maxFee" : self.maxGasUsed, "wallet" : self.profileName, "transaction" : transactionHash , "osLink":self.osLink, "image":self.imageUrl,"mintName":self.mintName,"quickMintLink":"https://api.axze.io/share?contractAddress={}&func={}&qty={}&price={}".format(self.contractAddress,self.mintFunctionCall,self.quantity,self.amount)}
                     if (not self.cancel):
                         if (statusTrack['status']==1): #successful mint 
                             taskLogger({"status" : "success","message":"Succesfully Minted, included in block : {}".format(blockNumber),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)

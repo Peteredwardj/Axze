@@ -5,13 +5,13 @@ from app_modules.taskLogger import taskLogger
 from app_modules.discordLog import webhookLog
 from app_modules.apiModules import etherScanApi,checkNode
 from app_modules.titleLog import classUpdateTitle
-from app_modules.hoardDat import hoardABI
+from app_modules.hoardDat import hoardABI,randABI
 from bs4 import BeautifulSoup
 
 
 global web3Connection
 etherScanApi = 'RITWHK4P371RN5G4PY1WGMNT3XQ32M9BVU'
-hoardContract = '0x7803C3f574cC9834Fb9688cedef5151b46664B27'
+hoardContract = '0x1D4F2182475bb9985BfE7a756f5B2e003e0Bc4d5'
 updateTitleCall=classUpdateTitle("Hoard")
 cachedContracts = {}
 cachedContractProperty = {}
@@ -23,9 +23,13 @@ class hoard():
         self.amount = amount
         self.quantity = quantity
         self.contract = None
-        self.contractAddress = contractAddress
+        
+        try:
+            self.contractAddress = Web3.toChecksumAddress(contractAddress)
+            self.walletAddress = Web3.toChecksumAddress(walletAddress)
+        except Exception as e:
+            taskLogger({"status" : "error","message":"Failed initializing contract/wallet, check contract/wallet input - {}".format(str(e)),"prefix":"({},{}) GWEI".format(maxGasFee,maxPriorityFee)},"Hoard Wallet")
         self.contractAbi = None
-        self.walletAddress = walletAddress
         self.walletKey = walletKey
         self.maxGasFee = maxGasFee
         self.maxPriorityFee = maxPriorityFee
@@ -40,7 +44,7 @@ class hoard():
         self.nonce = 0
         self.minted=False
         self.imageUrl = None
-        self.mintName = "{} Token".format(quantity*iterations)
+        self.mintName = "{} Tokens".format(quantity*iterations)
         self.profileName = walletAddress
         self.osLink = "https://opensea.io/collection/"
         self.proof = None
@@ -51,21 +55,19 @@ class hoard():
         self.iterations = int(iterations)
         self.hoardContract = None
         self.mode = mode
+
         
 
 
     def contractPropertyScrape(self):
         try:
-            looksRare = "https://api.looksrare.org/api/v1/collections?address={}".format(self.contractAddress)
-            response = requests.get(looksRare)
+            endpoint = "https://api.opensea.io/api/v1/asset_contract/{}".format(self.contractAddress)
+            headers = {"X-API-KEY": "a4dc98c6cd5b429a8a9ba947c4aceb91"}
+            response = requests.get(endpoint, headers=headers)
             responseJson = json.loads(response.text)
-            contractOwner = responseJson["data"]["owner"]
-            opensea = "https://api.opensea.io/api/v1/collections?asset_owner={}&offset=0&limit=300".format(contractOwner)
-            response = requests.get(opensea)
-            responseJson = json.loads(response.text)
-            self.mintName = "{} {}".format(str(self.quantity*self.iterations),responseJson[0]['primary_asset_contracts'][0]['name'])
-            self.imageUrl = responseJson[0]['primary_asset_contracts'][0]['image_url']
-            self.osLink = "https://opensea.io/collection/"+responseJson[0]['slug']
+            self.mintName = responseJson['collection']['name']
+            self.imageUrl = responseJson['image_url']
+            self.osLink = "https://opensea.io/collection/"+responseJson['collection']['slug']
         except Exception as e:
             taskLogger({"status":"warn", "message": "Failed to retrieve collection data - {}".format(str(e)),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
             cachedContractProperty[self.contractAddress] = {"mintName": self.mintName,"imageUrl":self.imageUrl,"osLink":self.osLink}
@@ -118,7 +120,7 @@ class hoard():
         self.hoardContract = web3Connection.eth.contract(address = hoardContract, abi = hoardABI)
     
     def checkHelper(self):
-        lengthResponse = self.hoardContract.functions['getHelpersLength'](self.walletAddress).call()
+        lengthResponse = len(self.hoardContract.functions['getHelpers'](self.walletAddress).call())
         taskLogger({"status" : "process","message":"Found {} hoarders for {}".format(lengthResponse,self.walletAddress),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
     
     def withdrawFunds(self):
@@ -138,42 +140,59 @@ class hoard():
             return False
         
         totalEstimatedGas = str(contractCall['gas']*self.maxGasFee*10**-9)[:6]
-        taskLogger({"status" : "warn","message":"Estimated maximum spending cost to withdraw all funds from {} hoarders is : {}E".format(self.iterations,totalEstimatedGas),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
+        taskLogger({"status" : "warn","message":"Estimated maximum spending cost to withdraw all funds from all hoarders is : {}E".format(totalEstimatedGas),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
         continueTxn = input("Would you like to continue withdrawing funds from hoarders? [y/n] : ")
         self.sendTxn(continueTxn,contractCall)
 
 
-
-    def withdrawNFT(self):
+    def generateWithdrawDat(self):
+        tupleDict = {}
+        tupleDat = []
         transactionURL = input("Please input Etherscan URL of the Mint transaction : ")
-        tokenArr = []
         session = cloudscraper.create_scraper(
-               browser={
-                        'browser': 'firefox',
-                        'platform': 'windows',
-                        'mobile': False
-            }
-        )
-
+                browser={
+                            'browser': 'firefox',
+                            'platform': 'windows',
+                            'mobile': False
+                }
+            )
         while True:
             try:
-                taskLogger({"status" : "process","message":"Fetching Transaction Info","prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
+                #print("fetching txn")
                 response = session.get(transactionURL)
                 if (response.status_code == 200): 
                     responseText = response.text
                     soup = BeautifulSoup(responseText,'html.parser')
-                    tokenList = soup.find_all("span",{"class": "hash-tag text-truncate tooltip-address"})
-                    for token in tokenList:
-                        tokenArr.append(int(token.text))
+                    tokenList = soup.find_all("span",{"class": "hash-tag text-truncate tooltip-address"}) #get all the tokens
+                    addressList = soup.find_all("span",{"class":"hash-tag text-truncate hash-tag-custom-to-721 tooltip-address"}) #get all the address transfer
+                    for i in range (0,len(tokenList)):
+                        token = int(tokenList[i].text)
+                        addressowner = addressList[i].text
+                        addressowner = Web3.toChecksumAddress(addressowner)
+                        if (addressowner not in tupleDict):
+                            tupleDict[addressowner] = [token]
+                        else:
+                            tupleDict[addressowner].append(token)
                     break
                 else:
-                    taskLogger({"status" : "error","message":"Failed fetching transaction info - {}".format(response.status_code),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
+                    print("failed fetching txn info - {}".format(response.status_code))
                     time.sleep(3)
             except Exception as e:
-                taskLogger({"status" : "error","message":"Failed fetching transaction info - {}".format(str(e)),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
+                print("Failed fetching txn info - {}".format(str(e)))
                 time.sleep(3)
-        
-        taskLogger({"status" : "warn","message":"Found token ID of {} - {} for this transaction".format(tokenArr[0],tokenArr[-1]),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
+        for tuple in tupleDict: #format it in array of an array 
+            tupleDat.append([tuple,tupleDict[tuple]])
+        withdrawDat = json.dumps(tupleDat) #format it properly
+        return withdrawDat 
+
+
+    def withdrawNFT(self):
+        tokenArr = []
+        withdrawDat = self.generateWithdrawDat()
+        withdrawJson = json.loads(withdrawDat)
+        firstToken = withdrawJson[0][1][0]
+        lastToken = withdrawJson[-1][1][-1]
+        taskLogger({"status" : "warn","message":"Found token ID of {} - {} for this transaction".format(firstToken,lastToken),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
         body = {
             'from' : self.walletAddress,
             'nonce' : self.getNonce(),
@@ -183,16 +202,20 @@ class hoard():
             'chainId' : 1 #change to 1 for main net
         }
         try:
-            tempArr = tokenArr[:]
+            tempArr = withdrawJson[:]
             while True:
                 taskLogger({"status" : "warn","message":"Generating best transaction with lowest gas cost","prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
                 contractCall = self.hoardContract.functions['withdrawNFTsFromChilds'](self.contractAddress,tempArr).buildTransaction(body)
-                if (contractCall['gas'] >= 30000000):
+                if (contractCall['gas'] >= 30000000 ): 
                     for _ in range (10):
                         tempArr.pop()
                 else:
+                    '''splitIDX = len(tempArr)
+                    if (splitIDX == len(withdrawJson)):
+                        txnList = [tempArr]
+                    else:'''
                     splitIDX = len(tempArr)
-                    txnList = list(self.splitter(tokenArr,splitIDX))
+                    txnList = list(self.splitter(withdrawJson,splitIDX))
                     taskLogger({"status" : "success","message":"Found optimum transaction","prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
                     break
 
@@ -222,7 +245,7 @@ class hoard():
         continueTxn = input("Would you like to continue withdrawing ({}E maximum spending)? [y/n] : ".format(str(totalEstimatedGas)[:6]))
 
         for i in range (0,len(contractCallArr)):
-            self.sendTxn(continueTxn,contractCallArr[i],txnList[i])
+            self.sendTxn(continueTxn,contractCallArr[i],len(txnList[i]))
 
     def splitter(self,tokenArr,splitIDX):
         for i in range(0,len(tokenArr),splitIDX):
@@ -269,6 +292,7 @@ class hoard():
             taskLogger({"status" : "error","message":"Failed initializing Mint contract- {}".format(e),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
         
         self.contractAbi = self.fetchProperties()         #self.contractAbi = randABI
+        #self.contractAbi = randABI
         try:
             self.contract = web3Connection.eth.contract(address = self.contractAddress, abi = self.contractAbi)
         except:
@@ -434,11 +458,15 @@ class hoard():
                 elif (self.mode == "mint"):
                     taskLogger({"status" : "success","message":"Succesfully hoarded {} tokens!".format(self.quantity*self.iterations),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
                     gasUsed = statusTrack['gasUsed']
+                    gasPrice = web3Connection.eth.get_transaction(result)['gasPrice']
+                    transactionCost = gasUsed * gasPrice
+                    transactionCost = web3Connection.fromWei(transactionCost,'ether')
+                    transactionCost = str(transactionCost)[:6]
                     transactionHash = statusTrack['transactionHash'].hex()
                     updateTitleCall.addSuccess()
                     self.amount = self.amount*float(self.iterations)
                     self.contractPropertyScrape()
-                    taskObject = {"status": "success","taskType": "Mint","receiver": self.contractAddress,"value": self.amount,"gas" : gasUsed , "mode": "Hoard" , "maxFee" : self.maxGasFee, "wallet" : self.profileName, "transaction" : transactionHash , "osLink":self.osLink, "image":self.imageUrl,"mintName":self.mintName,"quickMintLink":"https://api.axze.io/share?contractAddress={}&func={}&qty={}&price={}".format(self.contractAddress,self.mintFunctionCall,self.quantity,self.amount)}
+                    taskObject = {"status": "success","taskType": "Mint","receiver": self.contractAddress,"value": self.amount,"gas" : transactionCost , "mode": "Hoard" , "maxFee" : self.maxGasUsed, "wallet" : self.profileName, "transaction" : transactionHash , "osLink":self.osLink, "image":self.imageUrl,"mintName":self.mintName,"quickMintLink":"https://api.axze.io/share?contractAddress={}&func={}&qty={}&price={}".format(self.contractAddress,self.mintFunctionCall,self.quantity,self.amount)}
                     webhookLog(taskObject)
                 elif (self.mode == "withdrawNFT"):
                     taskLogger({"status" : "success","message":"Succesfully withdrew {} tokens from hoarders!".format(tokenCtr),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
