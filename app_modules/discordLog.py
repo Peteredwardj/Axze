@@ -101,7 +101,7 @@ def webhookLog(taskObject,session = None):
             embed=Embed(title=statusTitle,description=f"**Mint of {taskObject['mintName']}**",url=taskObject['osLink'],color=statusColor)
             embed.add_field(name="Contract",value="[{}](https://etherscan.io/address/{})".format(taskObject['receiver'],taskObject['receiver']),inline=True)
             embed.add_field(name="Value",value=f"{taskObject['value']} Ether",inline=True)
-            embed.add_field(name="Gas Used",value="{} wei".format(taskObject['gas']),inline=True)
+            embed.add_field(name="Gas Fee",value="{} Ether".format(taskObject['gas']),inline=True)
             embed.add_field(name="Mode",value=taskObject['mode'],inline=True)
             embed.add_field(name = "Presets", value = "||{} GWEI||".format(taskObject['maxFee']),inline=True)
             embed.add_field(name="Wallet",value="||{}||".format(taskObject['wallet']),inline=True)
