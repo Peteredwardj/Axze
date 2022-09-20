@@ -4,7 +4,6 @@ from email.policy import default
 from PyInquirer import prompt, Separator,Token,style_from_dict
 from colored import fg, attr
 import datetime,os,threading,json,time,re,uuid,requests
-from interactions import Embed
 import pandas as pd
 import xlwings as xw
 import csv
@@ -879,7 +878,7 @@ def optionHandler(answer):
                     chosenProfileGroup = profileGroupDict[runChoice]
                     dataObject = {'type' : "remoteProfileGroup", 'content': chosenProfileGroup}
                     writeConfig(dataObject)
-                    print(green+"Succesfully set {} as your default profile group for Remote Task!".format(chosenProfileGroup)+reset)
+                    print(green+"Succesfully set {} as your default profile group for Remote Task, restart bot!".format(chosenProfileGroup)+reset)
             else:
                 defaultProfileGroup = checkRemoteProfileGroup()
                 if (defaultProfileGroup == ""):
