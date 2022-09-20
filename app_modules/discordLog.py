@@ -155,7 +155,7 @@ def remoteWebhook(profileStr,contractAddress,mintFunc,quantity,amount,maxFeePerG
     embed.add_field(name="Quantity",value="{}".format(quantity))
     embed.add_field(name="Presets",value="{},{} GWEI".format(maxFeePerGas,maxPriorityFee))
     embed.add_field(name="Profiles",value = "{}".format(profileStr))
-    embed.set_footer(text = "©Axze 2022",icon_url="https://cdn.discordapp.com/attachments/930704832757649419/1016885344018378772/AXZE_PFP_FIX.jpeg")
+    embed.set_footer(text="Axze v{}".format(version),icon_url="https://cdn.discordapp.com/attachments/921303028538146827/998094621181747270/AXZE_PFP_FIX.jpg")
     embed.set_thumbnail(url="https://cdn.discordapp.com/attachments/930704832757649419/1020759015216664576/axzetransparent.png")
     checkoutHook.send(embed = embed)
 
