@@ -141,6 +141,24 @@ def webhookLog(taskObject,session = None):
                 break
             except:
                 time.sleep(4)
+
+
+def remoteWebhook(profileStr,contractAddress,mintFunc,quantity,amount,maxFeePerGas,maxPriorityFee):
+    checkoutHook = checkURL()
+    embed = Embed(title="**Axze Remote Mint started!**",color =1146986)
+    embed.add_field(name="Contract",value="[{}](https://etherscan.io/address/{})".format(contractAddress,contractAddress))
+    if (mintFunc.lower() == "default"):
+        embed.add_field(name = "Mint Function", value = "Auto Scrape")
+    else:
+        embed.add_field(name = "Mint Function", value = "`{}`".format(mintFunc))
+    embed.add_field(name="Value",value="{}E".format(amount))
+    embed.add_field(name="Quantity",value="{}".format(quantity))
+    embed.add_field(name="Presets",value="{},{} GWEI".format(maxFeePerGas,maxPriorityFee))
+    embed.add_field(name="Profiles",value = "{}".format(profileStr))
+    embed.set_footer(text = "©Axze 2022",icon_url="https://cdn.discordapp.com/attachments/930704832757649419/1016885344018378772/AXZE_PFP_FIX.jpeg")
+    embed.set_thumbnail(url="https://cdn.discordapp.com/attachments/930704832757649419/1020759015216664576/axzetransparent.png")
+    checkoutHook.send(embed = embed)
+
         
         
 

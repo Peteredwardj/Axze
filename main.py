@@ -1,8 +1,10 @@
 from __future__ import print_function, unicode_literals
 from cmath import nan
+from email.policy import default
 from PyInquirer import prompt, Separator,Token,style_from_dict
 from colored import fg, attr
 import datetime,os,threading,json,time,re,uuid,requests
+from interactions import Embed
 import pandas as pd
 import xlwings as xw
 import csv
@@ -13,10 +15,10 @@ from modules.premint import premint
 from modules.superful import superful
 from modules.hoard import hoard
 from modules.humanKind import humanKind
-from app_modules.discordLog import testLog
+from app_modules.discordLog import testLog,remoteWebhook
 from app_modules.version import version
 from app_modules.taskLogger import lightblue,green,red,yellow,reset,expColor,yellow2
-from app_modules.apiModules import checkNode,checkCapMonster
+from app_modules.apiModules import checkNode,checkCapMonster,checkRemoteProfileGroup,p_subscribe_key,p_uuid
 from app_modules.profileUtils  import profileManager
 from app_modules.splashScreen import loadSplash
 from app_modules.clearCache import clearCache
@@ -29,6 +31,13 @@ from flask import Flask,jsonify,request
 from waitress import serve
 from flask_restful import Resource,Api
 import shutil,tempfile
+from pubnub.pubnub import PubNub
+from pubnub.pnconfiguration import PNConfiguration
+from pubnub.exceptions import PubNubException
+from pubnub.enums import PNStatusCategory
+from pubnub.pnconfiguration import PNConfiguration
+from pubnub.pubnub import PubNub, SubscribeListener
+from pubnub.callbacks import SubscribeCallback
 
 global licenseUser,currentSheet,quickMintSheet,quickTaskThreads,licenseKeyGlobal
 currentObjectSet = []
@@ -52,7 +61,6 @@ style = style_from_dict({
 })
 
 
-
 mainMenu = [
     {
         'type': 'list',
@@ -67,6 +75,7 @@ mainMenu = [
             'Start Premint Modules',
             'Start Superful Modules',
             'Start Custom Raffle Modules',
+            'Axze Remote Task',
             'Profile Management',
             'Settings'
         ]
@@ -105,6 +114,91 @@ def update():
         additionalParam = {'quantity':quantity,'price':price,'func':mintFunc}
         taskHandler('quickMint',contractToRun,additionalParam)
         return "<h1>Starting Axze One click mint..</h1>"
+
+###connector setup###
+pnconfig = PNConfiguration()   
+pnconfig.subscribe_key = p_subscribe_key
+pnconfig.uuid = p_uuid
+pubnub = PubNub(pnconfig)
+class MySubscribeCallback(SubscribeCallback):
+    def status(self, pubnub, status):
+        if status.category == PNStatusCategory.PNUnexpectedDisconnectCategory:
+            print(status.category)
+            pubnub.reconnect()    #Attempt To reconnect 
+        elif status.category == PNStatusCategory.PNTimeoutCategory:
+            print(status.category)
+            pubnub.reconnect()
+ 
+    def presence(self, pubnub, presence):
+        pass
+ 
+    def message(self, pubnub, message):
+        messageObj = message.message
+        licenseKey = messageObj['license']
+        profileGroup = checkRemoteProfileGroup()            
+        if (licenseKey == licenseKeyGlobal): #for user
+            amount = float(messageObj['value'])
+            quantity = messageObj['qty']
+            contractAddress = messageObj['contractAddress']
+            mintFunc = messageObj['function']
+            maxFeePerGas = float(messageObj['maxGasFee'])
+            maxPriorityFee = float(messageObj['maxPriorityFee'])
+            absoluteMax = 0
+            autoAdjust = False
+            gasLimit = None
+            functionToMonitor = None
+            paramToMonitor = None
+            mode = "Axze Remote Mint"
+            if (maxFeePerGas == 0 or maxPriorityFee==0):
+                gasConfig = "auto"
+            else:
+                gasConfig = "manual"
+            continueVar = True
+            threadArr = []
+            with open('app_data/profileConfig.json') as f:
+                data = json.load(f)
+                try:
+                    profileArr = data[profileGroup]
+                    for profile in profileArr:
+                        if (profile in profileDict):
+                            thread = threading.Thread(target = mint(amount,quantity,profileDict[profile]['wallet'],profileDict[profile]['apiKey'],contractAddress,mintFunc,maxFeePerGas,maxPriorityFee,absoluteMax,autoAdjust,profile,gasConfig,mode,gasLimit,functionToMonitor,paramToMonitor).order)
+                            threadArr.append(thread)  
+                except Exception as e:
+                    print(red+"Could not find default profile group {} in your profile groups - {}".format(profileGroup,str(e))+reset)
+                    continueVar = False
+            f.close()
+            if (continueVar):
+                if (len(threadArr)>0):
+                    profileStr = ','.join(str(prof) for prof in profileArr)
+                    profileStr = "{}[{}]".format(profileGroup,profileStr)
+                    remoteWebhook(profileStr,contractAddress,mintFunc,quantity,amount,maxFeePerGas,maxPriorityFee)
+                    clearConsole()
+                    print(lightblue+"Initializing Remote Mint, cleared screen"+reset)
+                for t in threadArr:
+                    t.start()
+                
+                for t in threadArr:
+                    t.join()
+
+    def signal(self, pubnub, signal):
+        pass
+
+def checkRemoteTask():
+    defaultProfileGroup = checkRemoteProfileGroup()
+    if (defaultProfileGroup == ""):
+        print(yellow+"You currently do not have a default profile group set for Remote Task, head over to Axze Remote Task to learn more"+reset)
+        return False
+    return True
+
+def connectRemote():
+    global pubnub
+    try:
+        pubnub.subscribe().channels(['remote-mint']).execute()
+        print(green+"Axze Remote Task Active"+reset)
+        pubnub.add_listener(MySubscribeCallback())    
+    except Exception as e:
+        print(red + "Failed to connect to Axze Remote Task - {}".format(e)+reset)
+######################
 
 def osResize():
     if platform == "darwin":
@@ -215,7 +309,7 @@ def profileHandler():
             wallet = i._2
             apiKey = i._3
             profileDict[profile] = {'wallet' : wallet,'apiKey' :apiKey}
-        print(green + "Succesfully loaded profiles. Hit Ctrl+C anytime to go back to the menu!"+reset)
+        print(green + "Succesfully loaded profiles."+reset)
 
 
 def taskHandler(mode,inputUrl,additionalParam = None):
@@ -579,9 +673,10 @@ def writeConfig(dataObject):
             data["Webhook"] = dataObject['content']
         elif (dataObject['type'] == "capMonster"):
             data["capMonster"] = dataObject['content']
+        elif (dataObject['type'] == "remoteProfileGroup"):
+            data['remoteProfileGroup'] = dataObject['content']
         else: #write node config here
             data["Node"] = dataObject['content']
-
         with open('app_data/config.json','w') as p:
             json.dump(data, p,indent=4)
             p.close
@@ -752,7 +847,48 @@ def optionHandler(answer):
             if profileOption == "1":
                 profileManager("write",profileDict)
             else:
-                profileManager("read",profileDict)
+                profileManager("read",profileDict) 
+        
+        elif (option == "Axze Remote Task"):
+            print(yellow+"\nConfigure your default profile group for Remote Tasks.\nAll profiles within this group will be ran automatically when you trigger a Remote Task on Discord!"+reset)
+            question = [{
+                'type' : 'list',
+                'name' : 'Remote Menu',
+                'message' : 'Choose Option',
+                'choices' : [
+                    'Set default profile group for Remote Tasks',
+                    'View default profile group for Remote Tasks'
+                ]
+                }]
+            questionPrompt(question)
+    elif ("Remote Menu" in answer):
+        try:
+            profileGroupDict = {}
+            option = answer["Remote Menu"]
+            if (option == "Set default profile group for Remote Tasks"):
+                profileGroups = profileManager("read",profileDict)     #profile group screen 
+                if (len(profileGroups) == 0):
+                    print(red+"No profile groups found, make some to get started"+reset)
+                else:
+                    ctrGroup = 0 
+                    for profileGroup in profileGroups:   #read existing profile groups
+                        ctrGroup += 1 
+                        profileGroupDict[str(ctrGroup)] = profileGroup
+                        print("[{}] - {}".format(ctrGroup,profileGroup))
+                    runChoice = input(lightblue+"Choose a  profile group to set as default profile group for Remote Task: "+reset)
+                    chosenProfileGroup = profileGroupDict[runChoice]
+                    dataObject = {'type' : "remoteProfileGroup", 'content': chosenProfileGroup}
+                    writeConfig(dataObject)
+                    print(green+"Succesfully set {} as your default profile group for Remote Task!".format(chosenProfileGroup)+reset)
+            else:
+                defaultProfileGroup = checkRemoteProfileGroup()
+                if (defaultProfileGroup == ""):
+                    print(red+"You have not set a default profile group for Remote Tasks!"+reset)
+                else:
+                    print(green+"{}".format(defaultProfileGroup)+yellow+" is currently your default profile group for Remote Tasks"+reset)
+        except Exception as e:
+            print(red+"Axze Remote Task configuration error - {}".format(e)+reset)
+
     elif ("settings" in answer):
         option = answer['settings']
         if (option == "Discord Webhook"):
@@ -1018,7 +1154,12 @@ def main():
 
     clearConsole()
     menuInitializer()
+    runRemoteTaskClient = checkRemoteTask()
     profileHandler()
+    if (runRemoteTaskClient):
+        remoteThread = threading.Thread(target=connectRemote())
+        remoteThread.start()
+    print(yellow+"Tip : Hit Ctrl+C anytime to go back to the menu!"+reset)
     while True:
         try:
             if (not exitVar):
