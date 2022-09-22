@@ -855,7 +855,7 @@ def optionHandler(answer):
                 questionPrompt(question)
 
         elif (option == "Start Consolidation Modules"):
-            print(yellow+"Consolidation Modules are used to transfer ETH/NFTs from your profiles to a single wallet.\nNote : only wallets that own NFT tokens specified by a contract/ETH balance will transfer assets!")
+            print(yellow+"Consolidation Modules are used to transfer ETH/NFTs from your profiles to a single wallet.\nNote : only wallets that own NFT tokens specified by a contract/ETH balance will transfer assets!"+reset)
             question = [{
                 'type' : 'list',
                 'name' : 'Consolidation Menu',
