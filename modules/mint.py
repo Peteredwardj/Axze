@@ -314,7 +314,7 @@ class mint():
 
         for func in contractWorker:
             if ('name' in func):
-                if (func['type'] =="function"): #and func['stateMutability'] == "payable"):
+                if (func['type'] =="function" and func['stateMutability'] == "payable"):
                     #functionNameArr.append(func['name'])
                     functionNameDict[func['name']] = {}
                     functionNameDict[func['name']] = func['inputs']

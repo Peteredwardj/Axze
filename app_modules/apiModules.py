@@ -8,6 +8,7 @@ cfNode = "https://cloudflare-eth.com"
 remoteProfileGroup = ""
 p_subscribe_key = 'sub-c-7bad607b-f5bb-433c-b5ff-d86de3de759d'
 p_uuid = 'b9a05069-f8f8-4fdb-a136-9f83f6b9321d'
+alchemyK = 'WCcGaZk4Nbqo7lktJIbWaAXu6B_sLum0'
 
 def checkNode():
     global alternative

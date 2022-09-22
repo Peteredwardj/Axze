@@ -1,6 +1,7 @@
 from __future__ import print_function, unicode_literals
 from cmath import nan
 from email.policy import default
+from queue import PriorityQueue
 from PyInquirer import prompt, Separator,Token,style_from_dict
 from colored import fg, attr
 import datetime,os,threading,json,time,re,uuid,requests
@@ -14,10 +15,12 @@ from modules.premint import premint
 from modules.superful import superful
 from modules.hoard import hoard
 from modules.humanKind import humanKind
+from modules.nftconsolidation import consolidateNFT
+from modules.ethconsolidation import consolidateETH
 from app_modules.discordLog import testLog,remoteWebhook
 from app_modules.version import version
 from app_modules.taskLogger import lightblue,green,red,yellow,reset,expColor,yellow2
-from app_modules.apiModules import checkNode,checkCapMonster,checkRemoteProfileGroup,p_subscribe_key,p_uuid
+from app_modules.apiModules import checkNode,checkCapMonster,checkRemoteProfileGroup,p_subscribe_key
 from app_modules.profileUtils  import profileManager
 from app_modules.splashScreen import loadSplash
 from app_modules.clearCache import clearCache
@@ -31,12 +34,13 @@ from waitress import serve
 from flask_restful import Resource,Api
 import shutil,tempfile
 from pubnub.pubnub import PubNub
-from pubnub.pnconfiguration import PNConfiguration
+from pubnub.pnconfiguration import PNConfiguration,PNReconnectionPolicy
 from pubnub.exceptions import PubNubException
 from pubnub.enums import PNStatusCategory
 from pubnub.pnconfiguration import PNConfiguration
 from pubnub.pubnub import PubNub, SubscribeListener
 from pubnub.callbacks import SubscribeCallback
+
 
 global licenseUser,currentSheet,quickMintSheet,quickTaskThreads,licenseKeyGlobal
 currentObjectSet = []
@@ -74,6 +78,7 @@ mainMenu = [
             'Start Premint Modules',
             'Start Superful Modules',
             'Start Custom Raffle Modules',
+            'Start Consolidation Modules',
             'Axze Remote Task',
             'Profile Management',
             'Settings'
@@ -115,17 +120,14 @@ def update():
         return "<h1>Starting Axze One click mint..</h1>"
 
 ###connector setup###
-pnconfig = PNConfiguration()   
-pnconfig.subscribe_key = p_subscribe_key
-pnconfig.uuid = p_uuid
-pubnub = PubNub(pnconfig)
+global pubnub
 class MySubscribeCallback(SubscribeCallback):
     def status(self, pubnub, status):
         if status.category == PNStatusCategory.PNUnexpectedDisconnectCategory:
-            print(status.category)
+            print(red+"Axze Remote Mint disconnected, attempting to reconnect!"+reset)
             pubnub.reconnect()    #Attempt To reconnect 
         elif status.category == PNStatusCategory.PNTimeoutCategory:
-            print(status.category)
+            print(red+"Axze Remote Mint disconnected, attempting to reconnect!"+reset)
             pubnub.reconnect()
  
     def presence(self, pubnub, presence):
@@ -172,12 +174,13 @@ class MySubscribeCallback(SubscribeCallback):
                     profileStr = "{}[{}]".format(profileGroup,profileStr)
                     remoteWebhook(profileStr,contractAddress,mintFunc,quantity,amount,maxFeePerGas,maxPriorityFee)
                     clearConsole()
-                    print(lightblue+"Initializing Remote Mint, cleared screen"+reset)
+                    print(lightblue+"Initializing Remote Mint, cleared screen.\nAxze will continue to create and run tasks if Remote Task is triggered again, no need to restart Axze."+reset)
+
                 for t in threadArr:
                     t.start()
                 
-                for t in threadArr:
-                    t.join()
+                #for t in threadArr:
+                 #   t.join()
 
     def signal(self, pubnub, signal):
         pass
@@ -191,6 +194,11 @@ def checkRemoteTask():
 
 def connectRemote():
     global pubnub
+    pnconfig = PNConfiguration()   
+    pnconfig.subscribe_key = p_subscribe_key
+    pnconfig.uuid = licenseKeyGlobal
+    pnconfig.reconnect_policy = PNReconnectionPolicy.LINEAR
+    pubnub = PubNub(pnconfig)
     try:
         pubnub.subscribe().channels(['remote-mint']).execute()
         print(green+"Axze Remote Task Active"+reset)
@@ -725,8 +733,13 @@ def handleHoardStartup():
         mintFunc = "default"
     maxFeePerGas = float(input(lightblue+ "Enter Max Fee per gas in GWEI : "+reset))
     maxPriorityFee = float(input(lightblue+"Enter Max Priority Fee in GWEI : "+reset))
+    retryLive = input(lightblue+"Retry building transaction until sale is live? [y/n]: "+reset)
+    if (retryLive.lower()=="y"):
+        retryBool = True
+    else:
+        retryBool = False
     clearConsole()
-    hoard(amount,quantity,hoardWalletDict['wallet'],hoardWalletDict['key'],contractAddress,mintFunc,maxFeePerGas,maxPriorityFee,"manual",noOfIterator,"mint").order()
+    hoard(amount,quantity,hoardWalletDict['wallet'],hoardWalletDict['key'],contractAddress,mintFunc,maxFeePerGas,maxPriorityFee,"manual",noOfIterator,"mint",retryBool).order()
 
 
 
@@ -841,12 +854,30 @@ def optionHandler(answer):
                 
                 questionPrompt(question)
 
+        elif (option == "Start Consolidation Modules"):
+            print(yellow+"Consolidation Modules are used to transfer ETH/NFTs from your profiles to a single wallet.\nNote : only wallets that own NFT tokens specified by a contract/ETH balance will transfer assets!")
+            question = [{
+                'type' : 'list',
+                'name' : 'Consolidation Menu',
+                'message' : 'Choose Option',
+                'choices' : [
+                    'NFT Consolidation',
+                    'ETH Consolidation'
+                ]
+                }]
+            questionPrompt(question)    
+
         elif (option == "Profile Management"):
-            profileOption = input(lightblue+"[1] Create/Edit profile groups [2] View profile groups: "+reset)
-            if profileOption == "1":
-                profileManager("write",profileDict)
-            else:
-                profileManager("read",profileDict) 
+            question = [{
+                'type' : 'list',
+                'name' : 'Profile Menu',
+                'message' : 'Choose Option',
+                'choices' : [
+                    'Create/Edit profile groups',
+                    'View profile groups'
+                ]
+                }]
+            questionPrompt(question)    
         
         elif (option == "Axze Remote Task"):
             print(yellow+"\nConfigure your default profile group for Remote Tasks.\nAll profiles within this group will be ran automatically when you trigger a Remote Task on Discord!"+reset)
@@ -859,7 +890,59 @@ def optionHandler(answer):
                     'View default profile group for Remote Tasks'
                 ]
                 }]
-            questionPrompt(question)
+            questionPrompt(question)    
+
+    elif ("Profile Menu" in answer):
+        option = answer["Profile Menu"]
+        if (option == "Create/Edit profile groups"):
+            profileManager("write",profileDict)
+        else:
+            profileManager("read",profileDict)
+    
+    elif ("Consolidation Menu" in answer):
+        option = answer["Consolidation Menu"]
+        if (option == "NFT Consolidation"):
+            try:
+                contractAddress = input(lightblue+"Input Contract Address of NFT you wish to transfer: "+reset)
+                destAddress = input(lightblue+"Input wallet address you wish to transfer all your NFTs to (Do NOT input ENS): "+reset)
+                maxFeePerGas = float(input(lightblue+ "Enter Max Fee per gas in GWEI : "+reset))
+                maxPriorityFee = float(input(lightblue+"Enter Max Priority Fee in GWEI : "+reset))
+                continueTransfer = input(yellow+"Sending all tokens to {}. Continue? [y/n]: ".format(destAddress)+reset)
+                if (continueTransfer.lower()=="y"):
+                    threadArr = []
+                    for profile in profileDict:
+                        t = threading.Thread(target = consolidateNFT(profileDict[profile]['wallet'],profileDict[profile]['apiKey'],contractAddress,destAddress,maxFeePerGas,maxPriorityFee,profile).order)
+                        threadArr.append(t)
+                    clearConsole()
+                    print(lightblue+"Starting NFT consolidation Module!"+reset)
+                    for t in threadArr:
+                        t.start()
+                    for t in threadArr:
+                        t.join()
+            except Exception as e:
+                print(red+"NFT Consolidation task input error - {}".format(e)+reset)
+        else:
+            try:
+                print(yellow+"ETH Consolidation module will transfer ALL ETH from wallets that meets the minimum balance requirements to a single wallet!"+reset)
+                destAddress = input(lightblue+"Input wallet address you wish to transfer all your ETH to (Do NOT input ENS): "+reset)
+                minimumBalance = float(input(lightblue+"Input minimum balance a wallet should have (Ether): "+reset))
+                maxFeePerGas = float(input(lightblue+ "Enter Max Fee per gas in GWEI : "+reset))
+                maxPriorityFee = float(input(lightblue+"Enter Max Priority Fee in GWEI : "+reset))
+                continueTransfer = input(yellow+"Sending all ETH to {}. Continue? [y/n]: ".format(destAddress)+reset)
+                if (continueTransfer.lower()=="y"):
+                    threadArr = []
+                    for profile in profileDict:
+                        t = threading.Thread(target = consolidateETH(profileDict[profile]['wallet'],profileDict[profile]['apiKey'],destAddress,minimumBalance,maxFeePerGas,maxPriorityFee,profile).order)
+                        threadArr.append(t)
+                    clearConsole()
+                    print(lightblue+"Starting ETH consolidation Module!"+reset)
+                    print(yellow+"Module will exit if no wallet meets the {}E minimum requirement".format(minimumBalance)+reset)
+                    for t in threadArr:
+                        t.start()
+                    for t in threadArr:
+                        t.join()
+            except Exception as e:
+                print(red+"ETH Consolidation task input error - {}".format(e)+reset)
     elif ("Remote Menu" in answer):
         try:
             profileGroupDict = {}
@@ -963,11 +1046,6 @@ def optionHandler(answer):
             maxPriorityFee = float(input(lightblue+"Enter Max Priority Fee in GWEI : "+reset))
             clearConsole()
             hoard(0,0,hoardWalletDict['wallet'],hoardWalletDict['key'],defAddress,'mintFunc',maxFeePerGas,maxPriorityFee,"manual",0,"withdrawFunds").order()
-        
-
-
-
-            
 
     elif ("Premint Menu" in answer):
         if (answer["Premint Menu"] == "Premint Connect"):

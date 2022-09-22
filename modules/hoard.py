@@ -19,7 +19,7 @@ cachedFlip = {}
 submittingArr = []
 
 class hoard():
-    def __init__(self,amount,quantity,walletAddress,walletKey,contractAddress,mintFunc,maxGasFee,maxPriorityFee,gasMode,iterations,mode):
+    def __init__(self,amount,quantity,walletAddress,walletKey,contractAddress,mintFunc,maxGasFee,maxPriorityFee,gasMode,iterations,mode,retryBool=False):
         self.amount = amount
         self.quantity = quantity
         self.contract = None
@@ -55,6 +55,9 @@ class hoard():
         self.iterations = int(iterations)
         self.hoardContract = None
         self.mode = mode
+        self.needToTransfer = False
+        self.retryBool = retryBool
+        self.mintArgs = None
 
         
 
@@ -383,6 +386,7 @@ class hoard():
                 argsOrder.append(self.walletAddress)
 
         try:
+            self.mintArgs = argsOrder
             mintFunction = self.contract.encodeABI(fn_name=self.mintFunctionCall,args=argsOrder)
             taskLogger({"status" : "success","message":"Encoded mint transaction","prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
             return mintFunction
@@ -418,14 +422,44 @@ class hoard():
             'maxPriorityFeePerGas' : web3Connection.toWei(self.maxPriorityFee,'gwei'),
             'chainId' : 1 #change to 1 for main net
         }
+         #check if we can mint one token or not
 
+        while True:
+            try:
+                argNum = len(self.mintArgs)
+                if (argNum == 0):
+                    mintLive = self.contract.functions[self.mintFunctionCall]().buildTransaction(body)
+                elif (argNum == 1):
+                    mintLive = self.contract.functions[self.mintFunctionCall](self.mintArgs[0]).buildTransaction(body)
+                elif (argNum == 2):
+                    mintLive = self.contract.functions[self.mintFunctionCall](self.mintArgs[0],self.mintArgs[1]).buildTransaction(body)
+                elif (argNum == 3):
+                    mintLive = self.contract.functions[self.mintFunctionCall](self.mintArgs[0],self.mintArgs[1],self.mintArgs[2]).buildTransaction(body)
+                elif (argNum == 4):
+                    mintLive = self.contract.functions[self.mintFunctionCall](self.mintArgs[0],self.mintArgs[1],self.mintArgs[2],self.mintArgs[3]).buildTransaction(body)
+                else:
+                    taskLogger({"status" : "error","message":"Function structure is unknowned - {}, killing task".format(len(self.mintArgs)),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
+                    return False
+                break
+            except Exception as e:
+                if (self.retryBool == False):
+                    taskLogger({"status" : "error","message":"Error - {}. Retry is set to False, killing hoard task!".format(str(e)),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
+                    return False
+                else:
+                    taskLogger({"status" : "warn","message":"Monitoring sale - {}".format(str(e)),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
+                    time.sleep(2)
         try:
             self.checkHelper()
             contractCall = self.hoardContract.functions['startExploit'](self.contractAddress,mintHexData,self.iterations,True).buildTransaction(body)
         except Exception as e:
-            taskLogger({"status" : "error","message":"Failed to start Hoard txn - {}".format(e),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
-            updateTitleCall.addFail()
-            return False
+            try:
+                contractCall = self.hoardContract.functions['startExploit'](self.contractAddress,mintHexData,self.iterations,False).buildTransaction(body)
+                taskLogger({"status" : "warn","message":"Cannot autotransfer in a single transaction, you would have to run the withdraw module to collect your tokens after minting!","prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
+                self.needToTransfer = True
+            except Exception as e:
+                taskLogger({"status" : "error","message":"Failed to start Hoard txn - {}".format(e),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
+                updateTitleCall.addFail()
+                return False
         
         if (contractCall['gas'] >=30000000):
             taskLogger({"status" : "error","message":"Failed to start Hoard txn - exceeds block gas limit. Reduce the number of hoarders!","prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
@@ -457,6 +491,8 @@ class hoard():
                     self.checkHelper()
                 elif (self.mode == "mint"):
                     taskLogger({"status" : "success","message":"Succesfully hoarded {} tokens!".format(self.quantity*self.iterations),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
+                    if (self.needToTransfer):
+                        taskLogger({"status" : "warn","message":"Tokens need to be withdrawn. Run the [Emergency Function] Force withdraw NFTS from all my Hoarders module!".format(self.quantity*self.iterations),"prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
                     gasUsed = statusTrack['gasUsed']
                     gasPrice = web3Connection.eth.get_transaction(result)['gasPrice']
                     transactionCost = gasUsed * gasPrice
