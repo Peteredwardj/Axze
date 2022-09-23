@@ -30,7 +30,7 @@ class consolidateETH():
 
     def checkBalance(self):
         currBalance = web3Connection.eth.get_balance(Web3.toChecksumAddress(self.walletAddress))
-        if (currBalance<=0):
+        if (currBalance<=0 or (currBalance - web3Connection.toWei(self.maxGasFee,'gwei')*21000 <=0)):
             return False
         amount = web3Connection.fromWei(currBalance- web3Connection.toWei(self.maxGasFee,'gwei')*21000,'ether')
         if (amount>self.minimumBalance):
