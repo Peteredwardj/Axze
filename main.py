@@ -17,6 +17,7 @@ from modules.hoard import hoard
 from modules.humanKind import humanKind
 from modules.nftconsolidation import consolidateNFT
 from modules.ethconsolidation import consolidateETH
+from modules.orangeComet import orangeComet
 from app_modules.discordLog import testLog,remoteWebhook
 from app_modules.version import version
 from app_modules.taskLogger import lightblue,green,red,yellow,reset,expColor,yellow2
@@ -502,7 +503,7 @@ def taskHandler(mode,inputUrl,additionalParam = None):
                             t = threading.Thread(target=superful(inputUrl,profiles[profile]['wallet'],profiles[profile]['apiKey'],'-','password','discord','accessToken','accessSecret','consumerKey','consumerSecret',mode,profile,None,None).connect)
                         threadsArr.append(t)
 
-        elif (mode == "customRaffle-humanKind"):
+        elif ("customRaffle" in mode): #== "customRaffle-humanKind"):
             premintTask = True
             catchallInput = input("For tasks with empty email field, Axze will generate a random email based on your catchall.\nInput catchall domain (e.x customDomain.com): ")
             catchallInput = catchallInput.replace(" ","")
@@ -526,7 +527,10 @@ def taskHandler(mode,inputUrl,additionalParam = None):
                 if (profile not in profiles):
                         print(red+"{} not found in wallet.xlsx, skipping!".format(profile)+reset)
                 else:
-                    t = threading.Thread(target=humanKind("https://forms.bueno.art/humankind",profiles[profile]['wallet'],profiles[profile]['apiKey'],twitter,"discordToken",email,profile).connect)  
+                    if ("humankind" in inputUrl):
+                        t = threading.Thread(target=humanKind("https://forms.bueno.art/humankind",profiles[profile]['wallet'],profiles[profile]['apiKey'],twitter,"discordToken",email,profile).connect)  
+                    elif ("orangecomet" in inputUrl):
+                        t = threading.Thread(target=orangeComet("https://orangecomet.com/anthony-hopkins-premint-registration-2022/",profiles[profile]['wallet'],email,profile).initialize)  
                     threadsArr.append(t)              
 
         else:
@@ -815,6 +819,7 @@ def optionHandler(answer):
                 'name' : 'Custom Raffle Menu',
                 'message' : 'Choose module to run',
                 'choices' : [
+                    'Orange Comet - Anthony Hopkins',
                     'HumanKind Raffle',
             ]
             }]
@@ -1098,6 +1103,8 @@ def optionHandler(answer):
     elif ("Custom Raffle Menu" in answer):
         if (answer["Custom Raffle Menu"] == "HumanKind Raffle"):
             taskHandler("customRaffle-humanKind","https://forms.bueno.art/humankind")
+        elif(answer["Custom Raffle Menu"] == "Orange Comet - Anthony Hopkins"):
+            taskHandler("customRaffle-comet","https://orangecomet.com/anthony-hopkins-premint-registration-2022/")
 
             
     elif ("Discord Webhook Setting" in answer):
