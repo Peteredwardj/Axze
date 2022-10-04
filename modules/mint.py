@@ -367,6 +367,12 @@ class mint():
             mintFunction = self.contract.functions[self.mintFunctionCall](int(self.quantity)).buildTransaction(body)
             return mintFunction
         
+        if (self.contractAddress == Web3.toChecksumAddress("0x49adcc97404c197190a5866885018c558006974a")):
+            taskLogger({"status" : "process","message":"Encoding release data","prefix":"({},{}) GWEI".format(self.maxGasFee,self.maxPriorityFee)},self.taskId)
+            mintFunction = self.contract.functions['mint']([],'0x',int(self.quantity),3).buildTransaction(body)
+            self.mintFunction = mintFunction
+            return mintFunction
+
         for i in self.inputStuct:
             if ("bytes" in i['type']):
                 if (self.special == True and self.proof == None):
