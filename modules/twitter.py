@@ -468,6 +468,85 @@ def browserTask(user,password,discord,twitterReq,prefix,taskId,session,mode): #L
         instanceCtr -= 1
         return False,message
 
+def connectTwitterHeyMint(user,ses,prefix,taskId,twitterEnd):
+    try:
+        session = twitterSessionHandler(user,ses,prefix,taskId,True) #connect is true
+        headers = {
+            'Content-Type' :'application/x-www-form-urlencoded',
+            'Origin':'https://api.twitter.com',
+            'Referer':"https://heymint.xyz/",
+            'user-agent': "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:102.0) Gecko/20100101 Firefox/102.0"
+        }
+
+        while True:
+            try:
+                taskLogger({"status" : "process","message":"Fetching Twitter authorization","prefix":prefix},taskId)
+                response = session.get(twitterEnd, headers = headers)
+                if (response.status_code == 200):
+                    break
+                else:
+                    taskLogger({"status" : "error","message":"Failed to authorize Twitter authorization - {}".format(response.status_code),"prefix":prefix},taskId)
+                    time.sleep(3)
+            except Exception as e:
+                taskLogger({"status" : "error","message":"Failed to authorize Twitter authorization- {}".format(e),"prefix":prefix},taskId)
+                time.sleep(3)
+
+        soup = BeautifulSoup(response.text,"html.parser")
+        formItems = soup.find_all('input',{'type':"hidden"}) 
+        dictObj = {}
+        for item in formItems:
+            dictObj[item['name']] = item['value']
+        parsed = urlparse(dictObj['referer'])
+        oauthToken = parse_qs(parsed.query)['oauth_token'][0]
+
+        payload = {
+            "authenticity_token" : dictObj['authenticity_token'],
+            "redirect_after_login" :"https://api.twitter.com/oauth/authorize?oauth_token={}".format(oauthToken),
+            "oauth_token" : oauthToken
+        }
+
+        headers = {
+            'Content-Type' :'application/x-www-form-urlencoded',
+            'Origin':'https://api.twitter.com',
+            'Referer':"https://api.twitter.com"+dictObj['referer'],
+            'user-agent': "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:102.0) Gecko/20100101 Firefox/102.0"
+        }
+
+        while True:
+            try:
+                taskLogger({"status" : "process","message":"Authorizing Twitter account","prefix":prefix},taskId)
+                response = session.post("https://api.twitter.com/oauth/authorize",data = payload, headers = headers)
+                if (response.status_code == 200):
+                    break
+                else:
+                    taskLogger({"status" : "error","message":"Failed to authorize Twitter account - {}".format(response.status_code),"prefix":prefix},taskId)
+                    time.sleep(3)
+            except Exception as e:
+                taskLogger({"status" : "error","message":"Failed to authorize Twitter account- {}".format(e),"prefix":prefix},taskId)
+                time.sleep(3)
+
+        soup = BeautifulSoup(response.text,"html.parser")
+        banItems = soup.find("meta",{'http-equiv':"refresh"}) 
+        link = banItems['content'].replace("0;url=","")
+       
+        while True:
+            try:
+                taskLogger({"status" : "process","message":"Confirming HeyMint","prefix":prefix},taskId)
+                response = session.get(link)
+                if (response.status_code == 200):
+                    if ("heymint" in response.url):
+                        taskLogger({"status":"success","message":"Succesfully connected Twitter Account","prefix":prefix},taskId)
+                        return True,"success"
+                    else:
+                        taskLogger({"status" : "error","message":"Wrong redirect - {}".format(response.url),"prefix":prefix},taskId)
+                        time.sleep(3)
+            except Exception as e:
+                taskLogger({"status" : "error","message":"Failed to confirm HeyMint- {}".format(e),"prefix":prefix},taskId)
+                time.sleep(3)
+        
+    except Exception as e:
+        taskLogger({"status" : "error","message":"Failed connecting Twitter Account - {}".format(e),"prefix":prefix},taskId)
+        return False,"Failed connecting Twitter Account - {}".format(e)
 
 def connectTwitterSuperful(user,ses,prefix,taskId):
     try:
@@ -497,7 +576,7 @@ def connectTwitterSuperful(user,ses,prefix,taskId):
 
         while True:
             try:
-                taskLogger({"status" : "process","message":"Fetching Twitter authprization","prefix":prefix},taskId)
+                taskLogger({"status" : "process","message":"Fetching Twitter authorization","prefix":prefix},taskId)
                 response = session.get(twitterEnd, headers = headers)
                 if (response.status_code == 200):
                     break
