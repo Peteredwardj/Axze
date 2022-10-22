@@ -18,6 +18,7 @@ from modules.humanKind import humanKind
 from modules.nftconsolidation import consolidateNFT
 from modules.ethconsolidation import consolidateETH
 from modules.orangeComet import orangeComet
+from modules.heyMint import heyMint
 from app_modules.discordLog import testLog,remoteWebhook
 from app_modules.version import version
 from app_modules.taskLogger import lightblue,green,red,yellow,reset,expColor,yellow2
@@ -78,6 +79,7 @@ mainMenu = [
             'Start Wallet Generator',
             'Start Premint Modules',
             'Start Superful Modules',
+            'Start HeyMint Modules',
             'Start Custom Raffle Modules',
             'Start Consolidation Modules',
             'Axze Remote Task',
@@ -546,9 +548,12 @@ def taskHandler(mode,inputUrl,additionalParam = None):
             if ("premint" in inputUrl):
                 PATH = 'files/premintProfiles.xlsx'
                 taskString = "Premint"
-            else:
+            elif ("superful" in inputUrl):
                 PATH = 'files/superfulProfiles.xlsx'
                 taskString = "Superful"
+            elif ("heymint" in inputUrl):
+                PATH = 'files/heyMintProfiles.xlsx'
+                taskString = "HeyMint"
 
             taskCtr = 0
             sourceWallet = ""
@@ -650,8 +655,10 @@ def taskHandler(mode,inputUrl,additionalParam = None):
                     if (runPremintChain == False):
                         if ("premint" in inputUrl):
                             t = threading.Thread(target=premint(inputUrl,profiles[profile]['wallet'],profiles[profile]['apiKey'],twitter,password,discord,accessToken,accessSecret,consumerKey,consumerSecret,mode,profile,None,customField,discordMode,reactParam).connect)
-                        else:
+                        elif("superful" in inputUrl):
                             t = threading.Thread(target=superful(inputUrl,profiles[profile]['wallet'],profiles[profile]['apiKey'],twitter,password,discord,accessToken,accessSecret,consumerKey,consumerSecret,mode,profile,None,customField,discordMode,reactParam).connect)
+                        elif("heymint" in inputUrl):
+                            t = threading.Thread(target=heyMint(inputUrl,profiles[profile]['wallet'],profiles[profile]['apiKey'],twitter,password,'discord','accessToken','accessSecret','consumerKey','consumerSecret',mode,profile,None,None).connect)  
                         threadsArr.append(t)
                     else:
                         if (profileIterator == 0):
@@ -809,6 +816,18 @@ def optionHandler(answer):
                     'Superful Connect',
                     'Superful Disconnect',
                     'Winner Check',
+            ]
+            }]
+            questionPrompt(question) 
+        
+        elif (option == "Start HeyMint Modules"):
+            question = [{
+                'type' : 'list',
+                'name' : 'HeyMint Menu',
+                'message' : 'Choose module to run',
+                'choices' : [
+                    'HeyMint Entry',
+                    'Winner Check'
             ]
             }]
             questionPrompt(question) 
@@ -1099,7 +1118,13 @@ def optionHandler(answer):
             else:
                 print(lightblue+ "Checking entries result for : {}".format(inputUrl)+reset)
                 taskHandler("check",inputUrl)
-    
+    elif ("HeyMint Menu" in answer):
+        if (answer["HeyMint Menu"] == "HeyMint Entry"):
+            inputUrl = input(lightblue+ "Input HeyMint link : "+reset)
+            taskHandler("heymint",inputUrl)
+        elif (answer["HeyMint Menu"] == "Winner Check"):
+            inputUrl = input(lightblue+ "Input HeyMint link : "+reset)
+            taskHandler("check",inputUrl)    
     elif ("Custom Raffle Menu" in answer):
         if (answer["Custom Raffle Menu"] == "HumanKind Raffle"):
             taskHandler("customRaffle-humanKind","https://forms.bueno.art/humankind")
