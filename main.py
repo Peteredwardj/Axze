@@ -11,6 +11,7 @@ import csv
 from sys import platform
 from modules.mint import mint
 from modules.invite import inviteTask
+from modules.pencil import pencil
 from modules.premint import premint
 from modules.superful import superful
 from modules.hoard import hoard
@@ -534,7 +535,7 @@ def taskHandler(mode,inputUrl,additionalParam = None):
                     elif ("orangecomet" in inputUrl):
                         t = threading.Thread(target=orangeComet("https://orangecomet.com/anthony-hopkins-premint-registration-2022/",profiles[profile]['wallet'],email,profile).initialize)  
                     elif ("pencil" in inputUrl):
-                        t = threading.Thread(target=orangeComet("https://pencilcase.co/",profiles[profile]['wallet'],email,profile).initialize)  
+                        t = threading.Thread(target=pencil("https://pencilcase.co/",profiles[profile]['wallet'],email,profile).initialize)  
                     threadsArr.append(t)              
 
         else:
