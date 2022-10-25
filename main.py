@@ -533,6 +533,8 @@ def taskHandler(mode,inputUrl,additionalParam = None):
                         t = threading.Thread(target=humanKind("https://forms.bueno.art/humankind",profiles[profile]['wallet'],profiles[profile]['apiKey'],twitter,"discordToken",email,profile).connect)  
                     elif ("orangecomet" in inputUrl):
                         t = threading.Thread(target=orangeComet("https://orangecomet.com/anthony-hopkins-premint-registration-2022/",profiles[profile]['wallet'],email,profile).initialize)  
+                    elif ("pencil" in inputUrl):
+                        t = threading.Thread(target=orangeComet("https://pencilcase.co/",profiles[profile]['wallet'],email,profile).initialize)  
                     threadsArr.append(t)              
 
         else:
@@ -840,6 +842,7 @@ def optionHandler(answer):
                 'choices' : [
                     'Orange Comet - Anthony Hopkins',
                     'HumanKind Raffle',
+                    'Pencil Case'
             ]
             }]
             questionPrompt(question) 
@@ -1130,6 +1133,8 @@ def optionHandler(answer):
             taskHandler("customRaffle-humanKind","https://forms.bueno.art/humankind")
         elif(answer["Custom Raffle Menu"] == "Orange Comet - Anthony Hopkins"):
             taskHandler("customRaffle-comet","https://orangecomet.com/anthony-hopkins-premint-registration-2022/")
+        elif(answer["Custom Raffle Menu"] == "Pencil Case"):
+            taskHandler("customRaffle-pencil","https://pencilcase.co")
 
             
     elif ("Discord Webhook Setting" in answer):
