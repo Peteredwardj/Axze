@@ -1,14 +1,14 @@
 import json
 
-nodeProvider = 'https://mainnet.infura.io/v3/8160a2e520b84db9b08c9f2dffdb3d6e'
-alternative = 'https://eth-mainnet.alchemyapi.io/v2/nd_-JlKsvpR8Chc_CMcY231ViFIZYzjg'
-etherScanApi = 'RITWHK4P371RN5G4PY1WGMNT3XQ32M9BVU'
+nodeProvider = 'nodeprovider such as infura or alchemy'
+alternative = 'backup node provider'
+etherScanApi = 'etherscan api key'
 capKey = ""
 cfNode = "https://cloudflare-eth.com"
 remoteProfileGroup = ""
-p_subscribe_key = 'sub-c-7bad607b-f5bb-433c-b5ff-d86de3de759d'
-p_uuid = 'b9a05069-f8f8-4fdb-a136-9f83f6b9321d'
-alchemyK = 'WCcGaZk4Nbqo7lktJIbWaAXu6B_sLum0'
+p_subscribe_key = 'pubnub subscribe key'
+p_uuid = 'pubnub uuid'
+alchemyK = 'alchemy key'
 
 def checkNode():
     global alternative

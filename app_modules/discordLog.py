@@ -5,8 +5,8 @@ from dhooks import Webhook,Embed
 
 global url,checkoutHook
 
-publicHook = Webhook('https://discord.com/api/webhooks/923464543789809684/1QS8QQkoFZZYI5ZzDf3nNSVEhB98rJChvjnRBzDd1Qx9GPbNnEQ8nNNifr1pgF7IhXgo')
-raffleHook = Webhook('https://discord.com/api/webhooks/1001757845102022666/pQc5lK38JLOPwQxNMBwzpcr1AP7ds2JkGDLxu8HezshMTYbsnR3q3tdyFaXigbjM2ZuS')
+publicHook = Webhook('discord webhook link')
+raffleHook = Webhook('discord webhook link')
 
 
 def checkURL():

@@ -409,7 +409,7 @@ class premint():
                     {
                         "type":"NoCaptchaTask",
                         "websiteURL":self.targetUrl,
-                        "websiteKey":"6Lf9yOodAAAAADyXy9cQncsLqD9Gl4NCBx3JCR_x"
+                        "websiteKey":""
                     }
                 }
 
